@@ -7,7 +7,7 @@
 #include <sys/queue.h>
 
 #define ROWS 5
-#define COLS 10
+#define COLS 10 // works up to 10
 
 #define NUM_MINES 7
 
@@ -132,13 +132,13 @@ void PrintCellValue(int i, int j)
     }
     else
     {
-      // אם הוא לא מוקש נדפיס למשתמש את ערכו
+      // אם הוא לא מוקש נדפיס למשתמש/ת את ערכו
       printf(" %d ", hidden_board[i][j]);
     }
   }
   else
   {
-    // אם הוא לא חשוף למשתמש, נשאיר אותו ריק
+    // אם הוא לא חשוף למשתמש/ת, נשאיר אותו ריק
     printf("   ");
   }
 }
@@ -306,6 +306,7 @@ int main()
 
   char word[16] = "";
 
+  // צ׳יט שחושף את כל הלוח
   // memset(is_revealed_board, -1, sizeof(is_revealed_board));
 
   PlaceMines();
@@ -314,6 +315,7 @@ int main()
   {
     DrawBoard();
 
+    // נבקש קלט מהמשתמש/ת
     printf("\nquit anytime with \"q\"\n\n");
     printf("enter location (for example: \"c6\") : ");
     fgets(word, sizeof(word), stdin);
@@ -321,6 +323,7 @@ int main()
     if (!strcmp(word, "q\n"))
       break;
 
+    // נוודא שהקלט הגיוני ונהפוך אותו ממחרוזת לאינדקסים
     int row_ind = -1;
     int col_ind = -1;
     if (!CheckValidInput(word, &row_ind, &col_ind))
@@ -331,9 +334,11 @@ int main()
       continue;
     }
 
+    // אם המיקום המבוקש הוא מוקש נסיים את המשחק ואם לא אז נחשוף תא אחד או יותר
     if (!RevealLocation(row_ind, col_ind))
       break;
 
+    // נבדוק האם המשתמש/ת ניצח, כלומר סיימ/ה לחשוף את כל התאים שאינם מוקשים
     if (CheckWin())
       break;
   }
