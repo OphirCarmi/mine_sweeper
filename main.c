@@ -16,15 +16,25 @@ static int8_t hidden_board[ROWS][COLS] = {0};
 static bool is_revealed_board[ROWS][COLS] = {0};
 
 static int8_t neighbours[][2] = {
-    {-1, -1}, // top left
-    {-1, 0},  // top
-    {-1, 1},  // top right
-    {0, -1},  // left
-    {0, 1},   // right
-    {1, -1},  // bottom left
-    {1, 0},   // bottom
-    {1, 1},   // bottom right
+    {-1, -1}, // למעלה משמאל
+    {-1, 0},  // למעלה
+    {-1, 1},  // למעלה מימין
+    {0, -1},  // משמאל
+    {0, 1},   // מימין
+    {1, -1},  // למטה משמאל
+    {1, 0},   // למטה
+    {1, 1},   // למטה מימין
 };
+
+// ------------------------------------
+// | למעלה מימין | למעלה | למעלה משמאל |
+// ------------------------------------
+// |     מימין |   התא |   משמאל       |
+// ------------------------------------
+// | למטה מימין |  למטה |  למטה משמאל  |
+// ------------------------------------
+
+static int8_t num_neighbours = sizeof(neighbours) / sizeof(neighbours[0]);
 
 void PlaceMines()
 {
@@ -33,7 +43,21 @@ void PlaceMines()
   {
     indices[i] = i;
   }
-
+  // מלא במספרים עוקבים indices עכשיו המערך
+  // [0, 1, 2, 3, ..., ROWS * COLS - 1]
+  // כל מספר מתאים לתא בלוח המוקשים שלנו
+  // אם נניח שמספר השורות הוא 5 ומספר העמודות הוא 10
+  // -------------------------------------------
+  // | 0  | 1  |  2  | ...            | 8 | 9  |
+  // | 10 | 11 | 12  | ...            | 18| 19 |
+  // | ...                                     |
+  // | ...                                     |
+  // | 40 | 41 | 42  | ...            | 48| 49 |
+  // -------------------------------------------
+  //
+  // עכשיו ניצור מקומות אקראיים לשים בהם את המוקשים
+  // נעשה זאת ע״י ערבוב המקומות הראשונים של המערך
+  // זה נושא להרצאה אחרת
   for (int i = 0; i < NUM_MINES; ++i)
   {
     int ind = i + rand() % (ROWS * COLS - i);
@@ -42,26 +66,50 @@ void PlaceMines()
     indices[i] = temp;
   }
 
+  // עכשיו המקומות הראשונים במערך הם אינדקסים אקראיים, למשל
+  // [12, 5, 23, 46, ...]
+  // בתאים אלה נשים את המוקשים
+
   for (int i = 0; i < NUM_MINES; ++i)
   {
+    // בכל איטרציה נשים מוקש אחד ונעדכן את הערך של התאים השכנים שלו
     int ind = indices[i];
 
+    // נהפוך את האינדקס האקראי במערך החד-מימדי לשני אינדקסים בלוח שהוא מערך דו-מימדי
     int row_ind = ind / COLS;
     int col_ind = ind % COLS;
+
+    // מוקש יסומן בערך מיוחד (1-). יכולנו גם לבחור ערך אחר שלא מופיע בתא רגיל
+    // שאלת בונוס: איזה ערכים אפשר
     hidden_board[row_ind][col_ind] = -1;
 
-    for (int k = 0; k < 8; ++k)
+    // עכשיו הלוח נראה בערך ככה
+    // --------------------------------------------------------
+    // | 0 | -1| 0 | 0 | ...                          | 0 | 0 |
+    // --------------------------------------------------------
+    // | 0 | 0 | 0  |-1 | ...                    | -1 | 0 | 0 |
+    // --------------------------------------------------------
+    // ...
+
+    // עכשיו נעדכן את ערכי השכנים
+    // לכל תא יש בין שלושה לשמונה שכנים
+    for (int k = 0; k < num_neighbours; ++k)
     {
+      // בכל איטרציה נעדכן שכן אחד אם הוא קיים (ולא נופל מחוץ ללוח)
       int neigh_row_ind = row_ind + neighbours[k][0];
+      // נבדוק שהוא לא מעל או מתחת ללוח
       if (neigh_row_ind < 0 || neigh_row_ind >= ROWS)
         continue;
 
       int neigh_col_ind = col_ind + neighbours[k][1];
+      // נבדוק שהוא לא משמאל או מימין ללוח
       if (neigh_col_ind < 0 || neigh_col_ind >= COLS)
         continue;
 
+      // נבדוק שהוא לא מוקש
       if (hidden_board[neigh_row_ind][neigh_col_ind] != -1)
       {
+        // נוסיף אחד למנין המוקשים השכנים שלו (זוכרים שאתחלנו אותו לאפס בהתחלה? חשוב חשוב)
         hidden_board[neigh_row_ind][neigh_col_ind]++;
       }
     }
@@ -70,19 +118,23 @@ void PlaceMines()
 
 void PrintCellValue(int i, int j)
 {
+  // נבדוק שהתא הזה כבר חשוף למשתמש
   if (is_revealed_board[i][j])
   {
     if (hidden_board[i][j] == -1)
     {
+      // אם הוא מוקש נסמנו בהתאם
       printf(" * ");
     }
     else
     {
+      // אם הוא לא מוקש נדפיס למשתמש את ערכו
       printf(" %d ", hidden_board[i][j]);
     }
   }
   else
   {
+    // אם הוא לא חשוף למשתמש, נשאיר אותו ריק
     printf("   ");
   }
 }
@@ -100,6 +152,8 @@ void PrintHorizontalLine()
 void DrawBoard()
 {
   printf("\e[1;1H\e[2J"); // clear screen
+
+  printf("Mine Sweeper, num mines : %d\n\n", NUM_MINES);
 
   for (int i = 0; i < ROWS; ++i)
   {
@@ -169,7 +223,7 @@ void RevealZeroes(int row_ind, int col_ind)
 
     LIST_REMOVE(head.lh_first, entries);
 
-    for (int k = 0; k < 8; ++k)
+    for (int k = 0; k < num_neighbours; ++k)
     {
       int neigh_row_ind = curr_row_ind + neighbours[k][0];
       if (neigh_row_ind < 0 || neigh_row_ind >= ROWS)
@@ -185,7 +239,7 @@ void RevealZeroes(int row_ind, int col_ind)
       is_revealed_board[neigh_row_ind][neigh_col_ind] = true;
 
       DrawBoard();
-      usleep(200000);
+      usleep(100000);
 
       if (hidden_board[neigh_row_ind][neigh_col_ind] != 0)
         continue;
