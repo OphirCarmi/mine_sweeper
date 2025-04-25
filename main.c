@@ -7,8 +7,8 @@
 #include <sys/queue.h>
 #include <ncurses.h>
 
-#define ROWS 5
-#define COLS 10 // works up to 10
+#define ROWS 10
+#define COLS 10
 
 #define NUM_MINES (ROWS * COLS / 7)
 
@@ -171,7 +171,6 @@ void PrintCellValue(int i, int j)
 
 void PrintHorizontalLine()
 {
-  printw(" ");
   for (int j = 0; j < COLS; ++j)
   {
     printw("----");
@@ -183,7 +182,14 @@ void DrawBoard()
 {
   clear(); // clear screen
 
-  printw("Mine Sweeper, num mines : %d\n", NUM_MINES);
+  int num_flags = 0;
+  for (int i = 0; i < ROWS; ++i) {
+    for (int j = 0; j < ROWS; ++j) {
+      num_flags += is_flagged_board[i][j];
+    }
+  }
+
+  printw("Mine Sweeper, num mines: %d, num_flags: %d\n", NUM_MINES, num_flags);
 
   for (int i = 0; i < ROWS; ++i)
   {
@@ -197,22 +203,6 @@ void DrawBoard()
     printw("|\n");
   }
   PrintHorizontalLine();
-}
-
-bool CheckValidInput(const char *word, int *row_ind, int *col_ind)
-{
-  if (strlen(word) != 3)
-    return false;
-
-  *row_ind = word[0] - 'a';
-  if (*row_ind < 0 || *row_ind >= ROWS)
-    return false;
-
-  *col_ind = word[1] - '0';
-  if (*col_ind < 0 || *col_ind >= COLS)
-    return false;
-
-  return true;
 }
 
 void RevealZeroes(int row_ind, int col_ind)
@@ -400,6 +390,8 @@ int main()
     if (CheckWin())
       break;
   }
+
+  endwin();
 
   return 0;
 }
