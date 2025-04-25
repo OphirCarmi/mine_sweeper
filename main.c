@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <sys/queue.h>
+#include <ncurses.h>
 
 #define ROWS 5
 #define COLS 10 // works up to 10
@@ -35,6 +36,14 @@ static int8_t neighbours[][2] = {
 // ------------------------------------
 
 static int8_t num_neighbours = sizeof(neighbours) / sizeof(neighbours[0]);
+
+struct Position
+{
+  int i;
+  int j;
+};
+
+static struct Position pos;
 
 void PlaceMines()
 {
@@ -122,62 +131,74 @@ void PlaceMines()
 
 void PrintCellValue(int i, int j)
 {
+  printw(" ");
+  if (pos.i == i && pos.j == j)
+  {
+    attrset(COLOR_PAIR(1));
+  }
+  else
+  {
+    attrset(COLOR_PAIR(2));
+  }
+
   // נבדוק שהתא הזה כבר חשוף למשתמש
   if (is_revealed_board[i][j])
   {
     if (hidden_board[i][j] == -1)
     {
       // אם הוא מוקש נסמנו בהתאם
-      printf(" * ");
+      printw("*");
     }
     else
     {
       // אם הוא לא מוקש נדפיס למשתמש/ת את ערכו
-      printf(" %d ", hidden_board[i][j]);
+      printw("%d", hidden_board[i][j]);
     }
   }
   else
   {
     // אם הוא לא חשוף למשתמש/ת, נשאיר אותו ריק
-    printf("   ");
+    printw(" ");
   }
+  attroff(COLOR_PAIR(1));
+  printw(" ");
 }
 
 void PrintHorizontalLine()
 {
-  printf(" ");
+  printw(" ");
   for (int j = 0; j < COLS; ++j)
   {
-    printf("----");
+    printw("----");
   }
-  printf("-\n");
+  printw("-\n");
 }
 
 void DrawBoard()
 {
-  printf("\e[1;1H\e[2J"); // clear screen
+  clear(); // clear screen
 
-  printf("Mine Sweeper, num mines : %d\n\n", NUM_MINES);
+  printw("Mine Sweeper, num mines : %d\n", NUM_MINES);
 
   for (int i = 0; i < ROWS; ++i)
   {
     PrintHorizontalLine();
 
-    printf("%c", 'a' + i);
+    printw("%c", 'a' + i);
     for (int j = 0; j < COLS; ++j)
     {
-      printf("|");
+      printw("|");
       PrintCellValue(i, j);
     }
-    printf("|\n");
+    printw("|\n");
   }
   PrintHorizontalLine();
-  printf(" ");
+  printw(" ");
   for (int j = 0; j < COLS; ++j)
   {
-    printf("  %d ", j);
+    printw("  %d ", j);
   }
-  printf("\n");
+  printw("\n");
 }
 
 bool CheckValidInput(const char *word, int *row_ind, int *col_ind)
@@ -223,7 +244,7 @@ void RevealZeroes(int row_ind, int col_ind)
     int curr_row_ind = head.lh_first->row_ind;
     int curr_col_ind = head.lh_first->col_ind;
 
-    printf("%d %d\n", curr_row_ind, curr_col_ind);
+    printw("%d %d\n", curr_row_ind, curr_col_ind);
 
     LIST_REMOVE(head.lh_first, entries);
 
@@ -243,6 +264,7 @@ void RevealZeroes(int row_ind, int col_ind)
       is_revealed_board[neigh_row_ind][neigh_col_ind] = true;
 
       DrawBoard();
+      refresh();
       usleep(100000);
 
       if (hidden_board[neigh_row_ind][neigh_col_ind] != 0)
@@ -256,22 +278,22 @@ void RevealZeroes(int row_ind, int col_ind)
   }
 }
 
-bool RevealLocation(int row_ind, int col_ind)
+bool RevealLocation()
 {
-  switch (hidden_board[row_ind][col_ind])
+  switch (hidden_board[pos.i][pos.j])
   {
   case 0:
-    RevealZeroes(row_ind, col_ind);
+    RevealZeroes(pos.i, pos.j);
     return true;
   case -1:
-    is_revealed_board[row_ind][col_ind] = true;
+    is_revealed_board[pos.i][pos.j] = true;
     DrawBoard();
-    printf("\n\nBOOOOOOOOOM!!!! GAME OVER!\n");
-    fflush(stdout);
+    printw("\n\nBOOOOOOOOOM!!!! GAME OVER!\n");
+    refresh();
     sleep(3);
     return false;
   default:
-    is_revealed_board[row_ind][col_ind] = true;
+    is_revealed_board[pos.i][pos.j] = true;
     return true;
   }
 }
@@ -294,17 +316,30 @@ bool CheckWin()
 
   DrawBoard();
 
-  printf("\nYOU WON!!!\n");
-  fflush(stdout);
+  printw("\nYOU WON!!!\n");
+  refresh();
 
   return true;
 }
 
 int main()
 {
-  srand(time(NULL));
+  int ch;
 
-  char word[16] = "";
+  /* Curses Initialisations */
+  initscr();
+  use_default_colors();
+  start_color();
+  init_pair(1, -1, COLOR_GREEN);
+  init_pair(2, -1, -1);
+  raw();
+  keypad(stdscr, TRUE);
+  noecho();
+
+  pos.i = 0;
+  pos.j = 0;
+
+  srand(time(NULL));
 
   // צ׳יט שחושף את כל הלוח
   // memset(is_revealed_board, -1, sizeof(is_revealed_board));
@@ -316,31 +351,64 @@ int main()
     DrawBoard();
 
     // נבקש קלט מהמשתמש/ת
-    printf("\nquit anytime with \"q\"\n\n");
-    printf("enter location (for example: \"c6\") : ");
-    fgets(word, sizeof(word), stdin);
+    addstr("\nquit anytime with \"q\"\n\n");
+    printw("use arrows to move\n");
+    printw("use space bar to reveal\n");
+    printw("use `f` to flag an existing mine\n");
+    refresh();
 
-    if (!strcmp(word, "q\n"))
+    int c = getch();
+
+    bool should_break = false;
+    int curr;
+    switch (c)
+    {
+    case 'q':
+      should_break = true;
+      break;
+    case KEY_UP:
+      curr = pos.i - 1;
+      if (curr >= 0)
+        pos.i = curr;
+      break;
+    case KEY_DOWN:
+      curr = pos.i + 1;
+      if (curr < ROWS)
+        pos.i = curr;
+      break;
+    case KEY_LEFT:
+      curr = pos.j - 1;
+      if (curr >= 0)
+        pos.j = curr;
+      break;
+    case KEY_RIGHT:
+      curr = pos.j + 1;
+      if (curr < COLS)
+        pos.j = curr;
+      break;
+      case ' ':
+        // אם המיקום המבוקש הוא מוקש נסיים את המשחק ואם לא אז נחשוף תא אחד או יותר
+        if (!RevealLocation())
+          break;
+    }
+
+    if (should_break)
       break;
 
     // נוודא שהקלט הגיוני ונהפוך אותו ממחרוזת לאינדקסים
     int row_ind = -1;
     int col_ind = -1;
-    if (!CheckValidInput(word, &row_ind, &col_ind))
-    {
-      printf(" invalid input!");
-      fflush(stdout);
-      sleep(1);
-      continue;
-    }
+    // if (!CheckValidInput(word, &row_ind, &col_ind))
+    // {
+    //   printw(" invalid input!");
+    //   refresh();
+    //   sleep(1);
+    //   continue;
+    // }
 
-    // אם המיקום המבוקש הוא מוקש נסיים את המשחק ואם לא אז נחשוף תא אחד או יותר
-    if (!RevealLocation(row_ind, col_ind))
-      break;
-
-    // נבדוק האם המשתמש/ת ניצח, כלומר סיימ/ה לחשוף את כל התאים שאינם מוקשים
-    if (CheckWin())
-      break;
+    // // נבדוק האם המשתמש/ת ניצח, כלומר סיימ/ה לחשוף את כל התאים שאינם מוקשים
+    // if (CheckWin())
+    //   break;
   }
 
   return 0;
