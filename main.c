@@ -15,6 +15,7 @@
 static int8_t hidden_board[ROWS][COLS] = {0};
 
 static bool is_revealed_board[ROWS][COLS] = {0};
+static bool is_flagged_board[ROWS][COLS] = {0};
 
 static int8_t neighbours[][2] = {
     {-1, -1}, // למעלה משמאל
@@ -157,8 +158,12 @@ void PrintCellValue(int i, int j)
   }
   else
   {
-    // אם הוא לא חשוף למשתמש/ת, נשאיר אותו ריק
-    printw(" ");
+    if (is_flagged_board[i][j]) {
+      printw("f");
+    } else {
+      // אם הוא לא חשוף למשתמש/ת, נשאיר אותו ריק
+      printw(" ");
+    }
   }
   attroff(COLOR_PAIR(1));
   printw(" ");
@@ -184,7 +189,6 @@ void DrawBoard()
   {
     PrintHorizontalLine();
 
-    printw("%c", 'a' + i);
     for (int j = 0; j < COLS; ++j)
     {
       printw("|");
@@ -193,12 +197,6 @@ void DrawBoard()
     printw("|\n");
   }
   PrintHorizontalLine();
-  printw(" ");
-  for (int j = 0; j < COLS; ++j)
-  {
-    printw("  %d ", j);
-  }
-  printw("\n");
 }
 
 bool CheckValidInput(const char *word, int *row_ind, int *col_ind)
@@ -386,29 +384,21 @@ int main()
       if (curr < COLS)
         pos.j = curr;
       break;
-      case ' ':
-        // אם המיקום המבוקש הוא מוקש נסיים את המשחק ואם לא אז נחשוף תא אחד או יותר
-        if (!RevealLocation())
-          break;
+    case ' ':
+      // אם המיקום המבוקש הוא מוקש נסיים את המשחק ואם לא אז נחשוף תא אחד או יותר
+      should_break = !RevealLocation();
+      break;
+    case 'f':
+      is_flagged_board[pos.i][pos.j] = !is_flagged_board[pos.i][pos.j];
+      break;
     }
 
     if (should_break)
       break;
 
-    // נוודא שהקלט הגיוני ונהפוך אותו ממחרוזת לאינדקסים
-    int row_ind = -1;
-    int col_ind = -1;
-    // if (!CheckValidInput(word, &row_ind, &col_ind))
-    // {
-    //   printw(" invalid input!");
-    //   refresh();
-    //   sleep(1);
-    //   continue;
-    // }
-
-    // // נבדוק האם המשתמש/ת ניצח, כלומר סיימ/ה לחשוף את כל התאים שאינם מוקשים
-    // if (CheckWin())
-    //   break;
+    // נבדוק האם המשתמש/ת ניצח, כלומר סיימ/ה לחשוף את כל התאים שאינם מוקשים
+    if (CheckWin())
+      break;
   }
 
   return 0;
