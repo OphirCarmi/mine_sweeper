@@ -9,7 +9,7 @@
 #define ROWS 5
 #define COLS 10 // works up to 10
 
-#define NUM_MINES 7
+#define NUM_MINES (ROWS * COLS / 7)
 
 static int8_t hidden_board[ROWS][COLS] = {0};
 
