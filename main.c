@@ -307,7 +307,17 @@ bool CheckWin()
   printw("\nYOU WON!!!\n");
   refresh();
 
+  sleep(3);
+
   return true;
+}
+
+void Init() {
+  memset(is_flagged_board, 0, sizeof(is_flagged_board));
+  memset(is_revealed_board, 0, sizeof(is_revealed_board));
+  memset(hidden_board, 0, sizeof(hidden_board));
+
+  PlaceMines();
 }
 
 int main()
@@ -332,7 +342,7 @@ int main()
   // צ׳יט שחושף את כל הלוח
   // memset(is_revealed_board, -1, sizeof(is_revealed_board));
 
-  PlaceMines();
+  Init();
 
   for (;;)
   {
@@ -348,6 +358,7 @@ int main()
     int c = getch();
 
     bool should_break = false;
+    bool new_game = false;
     int curr;
     switch (c)
     {
@@ -376,7 +387,7 @@ int main()
       break;
     case ' ':
       // אם המיקום המבוקש הוא מוקש נסיים את המשחק ואם לא אז נחשוף תא אחד או יותר
-      should_break = !RevealLocation();
+      new_game = !RevealLocation();
       break;
     case 'f':
       is_flagged_board[pos.i][pos.j] = !is_flagged_board[pos.i][pos.j];
@@ -387,8 +398,8 @@ int main()
       break;
 
     // נבדוק האם המשתמש/ת ניצח, כלומר סיימ/ה לחשוף את כל התאים שאינם מוקשים
-    if (CheckWin())
-      break;
+    if (new_game || CheckWin())
+      Init();
   }
 
   endwin();
