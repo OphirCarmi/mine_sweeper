@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/queue.h>
 #include <ncurses.h>
+#include <pthread.h>
 
 #define ROWS 10
 #define COLS 10
@@ -158,9 +159,12 @@ void PrintCellValue(int i, int j)
   }
   else
   {
-    if (is_flagged_board[i][j]) {
+    if (is_flagged_board[i][j])
+    {
       printw("f");
-    } else {
+    }
+    else
+    {
       // אם הוא לא חשוף למשתמש/ת, נשאיר אותו ריק
       printw(" ");
     }
@@ -183,8 +187,10 @@ void DrawBoard()
   clear(); // clear screen
 
   int num_flags = 0;
-  for (int i = 0; i < ROWS; ++i) {
-    for (int j = 0; j < ROWS; ++j) {
+  for (int i = 0; i < ROWS; ++i)
+  {
+    for (int j = 0; j < ROWS; ++j)
+    {
       num_flags += is_flagged_board[i][j];
     }
   }
@@ -312,16 +318,26 @@ bool CheckWin()
   return true;
 }
 
-void Init() {
+void Init()
+{
   memset(is_flagged_board, 0, sizeof(is_flagged_board));
   memset(is_revealed_board, 0, sizeof(is_revealed_board));
   memset(hidden_board, 0, sizeof(hidden_board));
+  memset(&pos, 0, sizeof(pos));
 
   PlaceMines();
 }
 
-int main()
+struct fds
 {
+  int read_fd;
+  int write_fd;
+};
+
+void *run_game(void *arguments)
+{
+  struct fds fd = *(struct fds *)arguments;
+
   int ch;
 
   /* Curses Initialisations */
@@ -355,7 +371,13 @@ int main()
     printw("use `f` to flag an existing mine\n");
     refresh();
 
-    int c = getch();
+    int c;
+    ssize_t num_read = read(fd.read_fd, &c, sizeof(c));
+    if (num_read <= 0)
+    {
+      usleep(10000);
+      continue;
+    }
 
     bool should_break = false;
     bool new_game = false;
@@ -365,22 +387,22 @@ int main()
     case 'q':
       should_break = true;
       break;
-    case KEY_UP:
+    case 'w': // up
       curr = pos.i - 1;
       if (curr >= 0)
         pos.i = curr;
       break;
-    case KEY_DOWN:
+    case 'x': // down
       curr = pos.i + 1;
       if (curr < ROWS)
         pos.i = curr;
       break;
-    case KEY_LEFT:
+    case 'a': // left
       curr = pos.j - 1;
       if (curr >= 0)
         pos.j = curr;
       break;
-    case KEY_RIGHT:
+    case 'd': // right
       curr = pos.j + 1;
       if (curr < COLS)
         pos.j = curr;
@@ -399,10 +421,223 @@ int main()
 
     // נבדוק האם המשתמש/ת ניצח, כלומר סיימ/ה לחשוף את כל התאים שאינם מוקשים
     if (new_game || CheckWin())
-      Init();
+      break; // Init();
   }
 
   endwin();
+
+  return NULL;
+}
+
+void MoveByDiff(int write_fd, int diff_i, int diff_j)
+{
+  for (int m = 0; m < diff_i; ++m)
+  {
+    char c = 'x';
+    write(write_fd, &c, sizeof(c));
+    usleep(100000);
+  }
+  for (int m = 0; m < -diff_i; ++m)
+  {
+    char c = 'w';
+    write(write_fd, &c, sizeof(c));
+    usleep(100000);
+  }
+
+  for (int m = 0; m < diff_j; ++m)
+  {
+    char c = 'd';
+    write(write_fd, &c, sizeof(c));
+    usleep(100000);
+  }
+  for (int m = 0; m < -diff_j; ++m)
+  {
+    char c = 'a';
+    write(write_fd, &c, sizeof(c));
+    usleep(100000);
+  }
+}
+
+void open_channel(int *read_fd, int *write_fd)
+{
+  int vals[2];
+  int errc = pipe(vals);
+  if (errc)
+  {
+    fputs("Bad pipe", stderr);
+    *read_fd = -1;
+    *write_fd = -1;
+  }
+  else
+  {
+    *read_fd = vals[0];
+    *write_fd = vals[1];
+  }
+}
+
+bool CheckForObviousMines(int write_fd)
+{
+  bool ret = false;
+  for (int i = 0; i < ROWS; ++i)
+  {
+    for (int j = 0; j < COLS; ++j)
+    {
+      if (!is_revealed_board[i][j])
+        continue;
+
+      int8_t val = hidden_board[i][j];
+      int8_t sum_unrevealed = 0;
+      int8_t sum_flags = 0;
+      for (int k = 0; k < num_neighbours; ++k)
+      {
+        // בכל איטרציה נעדכן שכן אחד אם הוא קיים (ולא נופל מחוץ ללוח)
+        int neigh_row_ind = i + neighbours[k][0];
+        // נבדוק שהוא לא מעל או מתחת ללוח
+        if (neigh_row_ind < 0 || neigh_row_ind >= ROWS)
+          continue;
+
+        int neigh_col_ind = j + neighbours[k][1];
+        // נבדוק שהוא לא משמאל או מימין ללוח
+        if (neigh_col_ind < 0 || neigh_col_ind >= COLS)
+          continue;
+        sum_unrevealed += !is_revealed_board[neigh_row_ind][neigh_col_ind];
+        sum_flags += is_flagged_board[neigh_row_ind][neigh_col_ind];
+      }
+
+      FILE *f = fopen("/tmp/a.txt", "a");
+      fprintf(f, "i %d j %d val %d sum_unrevealed %d sum_flags %d\n", i, j, val, sum_unrevealed, sum_flags);
+      fclose(f);
+
+      if (val != sum_unrevealed + sum_flags)
+        continue;
+      for (int k = 0; k < num_neighbours; ++k)
+      {
+        // בכל איטרציה נעדכן שכן אחד אם הוא קיים (ולא נופל מחוץ ללוח)
+        int neigh_row_ind = i + neighbours[k][0];
+        // נבדוק שהוא לא מעל או מתחת ללוח
+        if (neigh_row_ind < 0 || neigh_row_ind >= ROWS)
+          continue;
+
+        int neigh_col_ind = j + neighbours[k][1];
+        // נבדוק שהוא לא משמאל או מימין ללוח
+        if (neigh_col_ind < 0 || neigh_col_ind >= COLS)
+          continue;
+
+        if (!is_revealed_board[neigh_row_ind][neigh_col_ind] && !is_flagged_board[neigh_row_ind][neigh_col_ind])
+        {
+          FILE *f = fopen("/tmp/a.txt", "a");
+          fprintf(f, "i %d j %d\n", neigh_row_ind, neigh_col_ind);
+          fclose(f);
+
+          int diff_i = neigh_row_ind - pos.i;
+          int diff_j = neigh_col_ind - pos.j;
+
+          f = fopen("/tmp/a.txt", "a");
+          fprintf(f, "di %d dj %d\n", diff_i, diff_j);
+          fclose(f);
+
+          MoveByDiff(write_fd, diff_i, diff_j);
+
+          char c = 'f';
+          write(write_fd, &c, sizeof(c));
+          usleep(100000);
+
+          ret = true;
+          break;
+        }
+      }
+      if (ret)
+        return ret;
+    }
+  }
+  return ret;
+}
+
+bool CheckForSolution(int write_fd)
+{
+  return CheckForObviousMines(write_fd);
+}
+
+void RevealRandomLocation(int write_fd)
+{
+  int indices[ROWS * COLS];
+  for (int i = 0; i < ROWS * COLS; ++i)
+  {
+    indices[i] = i;
+  }
+
+  for (int i = 0; i < ROWS * COLS; ++i)
+  {
+    int ind = i + rand() % (ROWS * COLS - i);
+    int temp = indices[ind];
+    indices[ind] = indices[i];
+    indices[i] = temp;
+
+    int row_ind = temp / COLS;
+    int col_ind = temp % COLS;
+    if (is_revealed_board[row_ind][col_ind])
+      continue;
+
+    FILE *f = fopen("/tmp/a.txt", "a");
+    fprintf(f, "1 i %d j %d\n", row_ind, col_ind);
+    fclose(f);
+
+    int diff_i = row_ind - pos.i;
+    int diff_j = col_ind - pos.j;
+
+    f = fopen("/tmp/a.txt", "a");
+    fprintf(f, "2 di %d dj %d\n", diff_i, diff_j);
+    fclose(f);
+
+    MoveByDiff(write_fd, diff_i, diff_j);
+
+    char c = ' ';
+    write(write_fd, &c, sizeof(c));
+    usleep(1000);
+    break;
+  }
+}
+
+void *run_user(void *arguments)
+{
+  struct fds fd = *(struct fds *)arguments;
+
+  for (int i = 0; ; ++i)
+  {
+    FILE *f = fopen("/tmp/a.txt", "a");
+    fprintf(f, "before CheckForSolution\n");
+    fclose(f);
+    if (CheckForSolution(fd.write_fd))
+      continue;
+
+    f = fopen("/tmp/a.txt", "a");
+    fprintf(f, "before RevealRandomLocation\n");
+    fclose(f);
+    RevealRandomLocation(fd.write_fd);
+  }
+
+  char c = 'q';
+  write(fd.write_fd, &c, sizeof(c));
+
+  close(fd.write_fd);
+
+  return NULL;
+}
+
+int main()
+{
+  struct fds fd;
+  open_channel(&fd.read_fd, &fd.write_fd);
+
+  pthread_t game;
+  pthread_t user;
+
+  pthread_create(&game, NULL, run_game, &fd);
+  sleep(2);
+  pthread_create(&user, NULL, run_user, &fd);
+
+  pthread_join(game, NULL);
+  pthread_join(user, NULL);
 
   return 0;
 }
