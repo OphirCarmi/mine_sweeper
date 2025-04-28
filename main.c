@@ -8,8 +8,8 @@
 #include <ncurses.h>
 #include <pthread.h>
 
-#define ROWS 10
-#define COLS 10
+#define ROWS 20
+#define COLS 20
 
 #define NUM_MINES (ROWS * COLS / 7)
 
@@ -369,22 +369,22 @@ void update_revealed_board(char *revealed_board)
 
 void write_revealed_board(char *revealed_board, struct all_fds *all_fds)
 {
-  FILE *f = fopen("/tmp/game.txt", "a");
-  for (int i = 0; i < ROWS; ++i)
-  {
-    for (int j = 0; j < COLS; ++j)
-    {
-      fprintf(f, "| %c |", revealed_board[i * COLS + j]);
-    }
-    fprintf(f, "\n");
-    for (int j = 0; j < COLS; ++j)
-    {
-      fprintf(f, "----");
-    }
-    fprintf(f, "-\n");
-  }
-  fprintf(f, "\n\n");
-  fclose(f);
+  // FILE *f = fopen("/tmp/game.txt", "a");
+  // for (int i = 0; i < ROWS; ++i)
+  // {
+  //   for (int j = 0; j < COLS; ++j)
+  //   {
+  //     fprintf(f, "| %c |", revealed_board[i * COLS + j]);
+  //   }
+  //   fprintf(f, "\n");
+  //   for (int j = 0; j < COLS; ++j)
+  //   {
+  //     fprintf(f, "----");
+  //   }
+  //   fprintf(f, "-\n");
+  // }
+  // fprintf(f, "\n\n");
+  // fclose(f);
 
   write(all_fds->to_user_fd.write_fd, revealed_board, ROWS * COLS);
 }
@@ -408,7 +408,7 @@ void *run_game(void *arguments)
   pos.i = 0;
   pos.j = 0;
 
-  // srand(time(NULL));
+  srand(time(NULL));
 
   // צ׳יט שחושף את כל הלוח
   // memset(is_revealed_board, -1, sizeof(is_revealed_board));
@@ -495,9 +495,6 @@ void *run_game(void *arguments)
 
     usleep(50000);
   }
-
-  close(all_fds.to_game_fd.read_fd);
-  close(all_fds.to_user_fd.write_fd);
 
   endwin();
 
@@ -590,9 +587,9 @@ bool CheckForObviousMines(const char *revealed_board, int write_fd)
         }
       }
 
-      FILE *f = fopen("/tmp/user.txt", "a");
-      fprintf(f, "i %d j %d val %d sum_unrevealed %d sum_flags %d\n", i, j, val, sum_unrevealed, sum_flags);
-      fclose(f);
+      // FILE *f = fopen("/tmp/user.txt", "a");
+      // fprintf(f, "i %d j %d val %d sum_unrevealed %d sum_flags %d\n", i, j, val, sum_unrevealed, sum_flags);
+      // fclose(f);
 
       if (val == sum_flags && sum_unrevealed)
       {
@@ -615,9 +612,9 @@ bool CheckForObviousMines(const char *revealed_board, int write_fd)
             int diff_i = neigh_row_ind - pos.i;
             int diff_j = neigh_col_ind - pos.j;
 
-            f = fopen("/tmp/user.txt", "a");
-            fprintf(f, "3 di %d dj %d\n", diff_i, diff_j);
-            fclose(f);
+            // f = fopen("/tmp/user.txt", "a");
+            // fprintf(f, "3 di %d dj %d\n", diff_i, diff_j);
+            // fclose(f);
 
             MoveByDiff(write_fd, diff_i, diff_j);
 
@@ -647,16 +644,16 @@ bool CheckForObviousMines(const char *revealed_board, int write_fd)
 
         if (revealed_board[neigh_row_ind * COLS + neigh_col_ind] == ' ')
         {
-          FILE *f = fopen("/tmp/user.txt", "a");
-          fprintf(f, "i %d j %d\n", neigh_row_ind, neigh_col_ind);
-          fclose(f);
+          // FILE *f = fopen("/tmp/user.txt", "a");
+          // fprintf(f, "i %d j %d\n", neigh_row_ind, neigh_col_ind);
+          // fclose(f);
 
           int diff_i = neigh_row_ind - pos.i;
           int diff_j = neigh_col_ind - pos.j;
 
-          f = fopen("/tmp/user.txt", "a");
-          fprintf(f, "di %d dj %d\n", diff_i, diff_j);
-          fclose(f);
+          // f = fopen("/tmp/user.txt", "a");
+          // fprintf(f, "di %d dj %d\n", diff_i, diff_j);
+          // fclose(f);
 
           MoveByDiff(write_fd, diff_i, diff_j);
 
@@ -700,16 +697,16 @@ void RevealRandomLocation(const char *revealed_board, int write_fd)
     if (revealed_board[row_ind * COLS + col_ind] != ' ')
       continue;
 
-    FILE *f = fopen("/tmp/user.txt", "a");
-    fprintf(f, "1 i %d j %d\n", row_ind, col_ind);
-    fclose(f);
+    // FILE *f = fopen("/tmp/user.txt", "a");
+    // fprintf(f, "1 i %d j %d\n", row_ind, col_ind);
+    // fclose(f);
 
     int diff_i = row_ind - pos.i;
     int diff_j = col_ind - pos.j;
 
-    f = fopen("/tmp/user.txt", "a");
-    fprintf(f, "2 di %d dj %d\n", diff_i, diff_j);
-    fclose(f);
+    // f = fopen("/tmp/user.txt", "a");
+    // fprintf(f, "2 di %d dj %d\n", diff_i, diff_j);
+    // fclose(f);
 
     MoveByDiff(write_fd, diff_i, diff_j);
 
@@ -735,44 +732,42 @@ void *run_user(void *arguments)
       continue;
     }
 
-    FILE *f = fopen("/tmp/user.txt", "a");
-    fprintf(f, "num_read %d\n", num_read);
+    // FILE *f = fopen("/tmp/user.txt", "a");
+    // fprintf(f, "num_read %d\n", num_read);
 
-    for (int m = 0; m < ROWS; ++m)
-    {
-      for (int j = 0; j < COLS; ++j)
-      {
-        fprintf(f, "----");
-      }
-      fprintf(f, "-\n");
-      for (int n = 0; n < COLS; ++n)
-      {
-        fprintf(f, "| %c ", revealed_board[m * COLS + n]);
-      }
-      fprintf(f, "|\n");
-    }
-    for (int j = 0; j < COLS; ++j)
-    {
-      fprintf(f, "----");
-    }
-    fprintf(f, "-\n");
+    // for (int m = 0; m < ROWS; ++m)
+    // {
+    //   for (int j = 0; j < COLS; ++j)
+    //   {
+    //     fprintf(f, "----");
+    //   }
+    //   fprintf(f, "-\n");
+    //   for (int n = 0; n < COLS; ++n)
+    //   {
+    //     fprintf(f, "| %c ", revealed_board[m * COLS + n]);
+    //   }
+    //   fprintf(f, "|\n");
+    // }
+    // for (int j = 0; j < COLS; ++j)
+    // {
+    //   fprintf(f, "----");
+    // }
+    // fprintf(f, "-\n");
 
-    fprintf(f, "before CheckForSolution\n");
-    fclose(f);
+    // fprintf(f, "before CheckForSolution\n");
+    // fclose(f);
     if (CheckForSolution(revealed_board, all_fds.to_game_fd.write_fd))
       continue;
 
-    f = fopen("/tmp/user.txt", "a");
-    fprintf(f, "before RevealRandomLocation\n");
-    fclose(f);
+    // f = fopen("/tmp/user.txt", "a");
+    // fprintf(f, "before RevealRandomLocation\n");
+    // fclose(f);
     RevealRandomLocation(revealed_board, all_fds.to_game_fd.write_fd);
   }
 
   char c = 'q';
   write(all_fds.to_game_fd.write_fd, &c, sizeof(c));
-
-  close(all_fds.to_game_fd.write_fd);
-  close(all_fds.to_user_fd.read_fd);
+  usleep(100000);
 
   return NULL;
 }
@@ -793,6 +788,12 @@ int main()
 
   pthread_join(game, NULL);
   pthread_join(user, NULL);
+
+  close(all_fds.to_game_fd.write_fd);
+  close(all_fds.to_user_fd.read_fd);
+
+  close(all_fds.to_game_fd.read_fd);
+  close(all_fds.to_user_fd.write_fd);
 
   return 0;
 }
