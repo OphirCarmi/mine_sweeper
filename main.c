@@ -340,8 +340,9 @@ struct all_fds
   struct fds to_user_fd;
 };
 
-void update_revealed_board(char *revealed_board) {
-    char *ptr = revealed_board;
+void update_revealed_board(char *revealed_board)
+{
+  char *ptr = revealed_board;
   for (int i = 0; i < ROWS; ++i)
   {
     for (int j = 0; j < COLS; ++j)
@@ -369,12 +370,15 @@ void update_revealed_board(char *revealed_board) {
 void write_revealed_board(char *revealed_board, struct all_fds *all_fds)
 {
   FILE *f = fopen("/tmp/game.txt", "a");
-  for (int i = 0; i < ROWS; ++i) {
-    for (int j = 0; j < COLS; ++j) {
+  for (int i = 0; i < ROWS; ++i)
+  {
+    for (int j = 0; j < COLS; ++j)
+    {
       fprintf(f, "| %c |", revealed_board[i * COLS + j]);
     }
     fprintf(f, "\n");
-    for (int j = 0; j < COLS; ++j) {
+    for (int j = 0; j < COLS; ++j)
+    {
       fprintf(f, "----");
     }
     fprintf(f, "-\n");
@@ -417,7 +421,7 @@ void *run_game(void *arguments)
   update_revealed_board(revealed_board);
   write_revealed_board(revealed_board, &all_fds);
 
-  memcpy(last_revealed_board, revealed_board, ROWS*COLS);
+  memcpy(last_revealed_board, revealed_board, ROWS * COLS);
 
   for (;;)
   {
@@ -483,9 +487,10 @@ void *run_game(void *arguments)
       break; // Init();
 
     update_revealed_board(revealed_board);
-    if (memcmp(revealed_board, last_revealed_board, ROWS * COLS)) {
+    if (memcmp(revealed_board, last_revealed_board, ROWS * COLS))
+    {
       write_revealed_board(revealed_board, &all_fds);
-      memcpy(last_revealed_board, revealed_board, ROWS*COLS);
+      memcpy(last_revealed_board, revealed_board, ROWS * COLS);
     }
 
     usleep(50000);
@@ -589,8 +594,44 @@ bool CheckForObviousMines(const char *revealed_board, int write_fd)
       fprintf(f, "i %d j %d val %d sum_unrevealed %d sum_flags %d\n", i, j, val, sum_unrevealed, sum_flags);
       fclose(f);
 
+      if (val == sum_flags && sum_unrevealed)
+      {
+        // reveal unrevealed by logic
+        for (int k = 0; k < num_neighbours; ++k)
+        {
+          // בכל איטרציה נעדכן שכן אחד אם הוא קיים (ולא נופל מחוץ ללוח)
+          int neigh_row_ind = i + neighbours[k][0];
+          // נבדוק שהוא לא מעל או מתחת ללוח
+          if (neigh_row_ind < 0 || neigh_row_ind >= ROWS)
+            continue;
+
+          int neigh_col_ind = j + neighbours[k][1];
+          // נבדוק שהוא לא משמאל או מימין ללוח
+          if (neigh_col_ind < 0 || neigh_col_ind >= COLS)
+            continue;
+
+          if (revealed_board[neigh_row_ind * COLS + neigh_col_ind] == ' ')
+          {
+            int diff_i = neigh_row_ind - pos.i;
+            int diff_j = neigh_col_ind - pos.j;
+
+            f = fopen("/tmp/user.txt", "a");
+            fprintf(f, "3 di %d dj %d\n", diff_i, diff_j);
+            fclose(f);
+
+            MoveByDiff(write_fd, diff_i, diff_j);
+
+            char c = ' ';
+            write(write_fd, &c, sizeof(c));
+            usleep(100000);
+          }
+        }
+        return true;
+      }
       if (val != sum_unrevealed + sum_flags)
         continue;
+
+      // flag a mine
       for (int k = 0; k < num_neighbours; ++k)
       {
         // בכל איטרציה נעדכן שכן אחד אם הוא קיים (ולא נופל מחוץ ללוח)
@@ -684,11 +725,12 @@ void *run_user(void *arguments)
 
   char revealed_board[ROWS * COLS];
 
-  for (int i = 0; ; ++i)
+  for (int i = 0;; ++i)
   {
     // TODO (oc): get pos too
     int num_read = read(all_fds.to_user_fd.read_fd, revealed_board, ROWS * COLS);
-    if (num_read <= 0) {
+    if (num_read <= 0)
+    {
       usleep(1000);
       continue;
     }
@@ -696,13 +738,15 @@ void *run_user(void *arguments)
     FILE *f = fopen("/tmp/user.txt", "a");
     fprintf(f, "num_read %d\n", num_read);
 
-    for (int m = 0; m < ROWS; ++m) {
+    for (int m = 0; m < ROWS; ++m)
+    {
       for (int j = 0; j < COLS; ++j)
       {
         fprintf(f, "----");
       }
       fprintf(f, "-\n");
-      for (int n = 0; n < COLS; ++n) {
+      for (int n = 0; n < COLS; ++n)
+      {
         fprintf(f, "| %c ", revealed_board[m * COLS + n]);
       }
       fprintf(f, "|\n");
