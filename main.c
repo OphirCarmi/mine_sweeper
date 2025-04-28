@@ -8,8 +8,8 @@
 #include <ncurses.h>
 #include <pthread.h>
 
-#define ROWS 20
-#define COLS 20
+#define ROWS 30
+#define COLS 30
 
 #define NUM_MINES (ROWS * COLS / 7)
 
@@ -416,12 +416,9 @@ void *run_game(void *arguments)
   Init();
 
   char revealed_board[ROWS * COLS];
-  char last_revealed_board[ROWS * COLS];
 
   update_revealed_board(revealed_board);
   write_revealed_board(revealed_board, &all_fds);
-
-  memcpy(last_revealed_board, revealed_board, ROWS * COLS);
 
   for (;;)
   {
@@ -444,6 +441,7 @@ void *run_game(void *arguments)
 
     bool should_break = false;
     bool new_game = false;
+    bool board_changed = false;
     int curr;
     switch (c)
     {
@@ -473,27 +471,28 @@ void *run_game(void *arguments)
     case ' ':
       // אם המיקום המבוקש הוא מוקש נסיים את המשחק ואם לא אז נחשוף תא אחד או יותר
       new_game = !RevealLocation();
+      board_changed = true;
       break;
     case 'f':
       is_flagged_board[pos.i][pos.j] = !is_flagged_board[pos.i][pos.j];
+      board_changed = true;
       break;
     }
 
     if (should_break)
       break;
 
-    // נבדוק האם המשתמש/ת ניצח, כלומר סיימ/ה לחשוף את כל התאים שאינם מוקשים
-    if (new_game || CheckWin())
-      break; // Init();
-
     update_revealed_board(revealed_board);
-    if (memcmp(revealed_board, last_revealed_board, ROWS * COLS))
+    if (board_changed)
     {
       write_revealed_board(revealed_board, &all_fds);
-      memcpy(last_revealed_board, revealed_board, ROWS * COLS);
     }
 
     usleep(50000);
+
+    // נבדוק האם המשתמש/ת ניצח, כלומר סיימ/ה לחשוף את כל התאים שאינם מוקשים
+    if (new_game || CheckWin())
+      break; // Init();
   }
 
   endwin();
@@ -716,6 +715,30 @@ void RevealRandomLocation(const char *revealed_board, int write_fd)
   }
 }
 
+int CheckEnd(const char *revealed_board)
+{
+  bool ret = false;
+  for (int i = 0; i < ROWS; ++i)
+  {
+    for (int j = 0; j < COLS; ++j)
+    {
+      if (revealed_board[i * COLS + j] == '*')
+        return -1; // lose
+    }
+  }
+
+  for (int i = 0; i < ROWS; ++i)
+  {
+    for (int j = 0; j < COLS; ++j)
+    {
+      if (revealed_board[i * COLS + j] == ' ')
+        return 0; // not end
+    }
+  }
+
+  return 1; // win
+}
+
 void *run_user(void *arguments)
 {
   struct all_fds all_fds = *(struct all_fds *)arguments;
@@ -731,6 +754,9 @@ void *run_user(void *arguments)
       usleep(1000);
       continue;
     }
+
+    if (CheckEnd(revealed_board))
+      break;
 
     // FILE *f = fopen("/tmp/user.txt", "a");
     // fprintf(f, "num_read %d\n", num_read);
