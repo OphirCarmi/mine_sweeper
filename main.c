@@ -656,7 +656,7 @@ void RevealRandomLocation(const char *revealed_board, int write_fd)
 
     int row_ind = temp / COLS;
     int col_ind = temp % COLS;
-    if (is_revealed_board[row_ind][col_ind])
+    if (revealed_board[row_ind * COLS + col_ind] != ' ')
       continue;
 
     FILE *f = fopen("/tmp/user.txt", "a");
