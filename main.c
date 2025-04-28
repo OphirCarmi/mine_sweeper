@@ -334,9 +334,60 @@ struct fds
   int write_fd;
 };
 
+struct all_fds
+{
+  struct fds to_game_fd;
+  struct fds to_user_fd;
+};
+
+void update_revealed_board(char *revealed_board) {
+    char *ptr = revealed_board;
+  for (int i = 0; i < ROWS; ++i)
+  {
+    for (int j = 0; j < COLS; ++j)
+    {
+      if (is_revealed_board[i][j])
+      {
+        if (hidden_board[i][j] == -1)
+          *ptr = '*';
+        else
+          *ptr = '0' + hidden_board[i][j];
+      }
+      else if (is_flagged_board[i][j])
+      {
+        *ptr = 'f';
+      }
+      else
+      {
+        *ptr = ' ';
+      }
+      ++ptr;
+    }
+  }
+}
+
+void write_revealed_board(char *revealed_board, struct all_fds *all_fds)
+{
+  FILE *f = fopen("/tmp/game.txt", "a");
+  for (int i = 0; i < ROWS; ++i) {
+    for (int j = 0; j < COLS; ++j) {
+      fprintf(f, "| %c |", revealed_board[i * COLS + j]);
+    }
+    fprintf(f, "\n");
+    for (int j = 0; j < COLS; ++j) {
+      fprintf(f, "----");
+    }
+    fprintf(f, "-\n");
+  }
+  fprintf(f, "\n\n");
+  fclose(f);
+
+  write(all_fds->to_user_fd.write_fd, revealed_board, ROWS * COLS);
+}
+
 void *run_game(void *arguments)
 {
-  struct fds fd = *(struct fds *)arguments;
+  struct all_fds all_fds = *(struct all_fds *)arguments;
 
   int ch;
 
@@ -353,12 +404,20 @@ void *run_game(void *arguments)
   pos.i = 0;
   pos.j = 0;
 
-  srand(time(NULL));
+  // srand(time(NULL));
 
   // צ׳יט שחושף את כל הלוח
   // memset(is_revealed_board, -1, sizeof(is_revealed_board));
 
   Init();
+
+  char revealed_board[ROWS * COLS];
+  char last_revealed_board[ROWS * COLS];
+
+  update_revealed_board(revealed_board);
+  write_revealed_board(revealed_board, &all_fds);
+
+  memcpy(last_revealed_board, revealed_board, ROWS*COLS);
 
   for (;;)
   {
@@ -371,8 +430,8 @@ void *run_game(void *arguments)
     printw("use `f` to flag an existing mine\n");
     refresh();
 
-    int c;
-    ssize_t num_read = read(fd.read_fd, &c, sizeof(c));
+    char c;
+    ssize_t num_read = read(all_fds.to_game_fd.read_fd, &c, sizeof(c));
     if (num_read <= 0)
     {
       usleep(10000);
@@ -422,7 +481,18 @@ void *run_game(void *arguments)
     // נבדוק האם המשתמש/ת ניצח, כלומר סיימ/ה לחשוף את כל התאים שאינם מוקשים
     if (new_game || CheckWin())
       break; // Init();
+
+    update_revealed_board(revealed_board);
+    if (memcmp(revealed_board, last_revealed_board, ROWS * COLS)) {
+      write_revealed_board(revealed_board, &all_fds);
+      memcpy(last_revealed_board, revealed_board, ROWS*COLS);
+    }
+
+    usleep(50000);
   }
+
+  close(all_fds.to_game_fd.read_fd);
+  close(all_fds.to_user_fd.write_fd);
 
   endwin();
 
@@ -475,17 +545,20 @@ void open_channel(int *read_fd, int *write_fd)
   }
 }
 
-bool CheckForObviousMines(int write_fd)
+bool CheckForObviousMines(const char *revealed_board, int write_fd)
 {
   bool ret = false;
   for (int i = 0; i < ROWS; ++i)
   {
     for (int j = 0; j < COLS; ++j)
     {
-      if (!is_revealed_board[i][j])
+      if (revealed_board[i * COLS + j] == ' ')
         continue;
 
-      int8_t val = hidden_board[i][j];
+      if (revealed_board[i * COLS + j] == 'f')
+        continue;
+
+      int8_t val = revealed_board[i * COLS + j] - '0';
       int8_t sum_unrevealed = 0;
       int8_t sum_flags = 0;
       for (int k = 0; k < num_neighbours; ++k)
@@ -500,11 +573,19 @@ bool CheckForObviousMines(int write_fd)
         // נבדוק שהוא לא משמאל או מימין ללוח
         if (neigh_col_ind < 0 || neigh_col_ind >= COLS)
           continue;
-        sum_unrevealed += !is_revealed_board[neigh_row_ind][neigh_col_ind];
-        sum_flags += is_flagged_board[neigh_row_ind][neigh_col_ind];
+
+        switch (revealed_board[neigh_row_ind * COLS + neigh_col_ind])
+        {
+        case ' ':
+          ++sum_unrevealed;
+          break;
+        case 'f':
+          ++sum_flags;
+          break;
+        }
       }
 
-      FILE *f = fopen("/tmp/a.txt", "a");
+      FILE *f = fopen("/tmp/user.txt", "a");
       fprintf(f, "i %d j %d val %d sum_unrevealed %d sum_flags %d\n", i, j, val, sum_unrevealed, sum_flags);
       fclose(f);
 
@@ -523,16 +604,16 @@ bool CheckForObviousMines(int write_fd)
         if (neigh_col_ind < 0 || neigh_col_ind >= COLS)
           continue;
 
-        if (!is_revealed_board[neigh_row_ind][neigh_col_ind] && !is_flagged_board[neigh_row_ind][neigh_col_ind])
+        if (revealed_board[neigh_row_ind * COLS + neigh_col_ind] == ' ')
         {
-          FILE *f = fopen("/tmp/a.txt", "a");
+          FILE *f = fopen("/tmp/user.txt", "a");
           fprintf(f, "i %d j %d\n", neigh_row_ind, neigh_col_ind);
           fclose(f);
 
           int diff_i = neigh_row_ind - pos.i;
           int diff_j = neigh_col_ind - pos.j;
 
-          f = fopen("/tmp/a.txt", "a");
+          f = fopen("/tmp/user.txt", "a");
           fprintf(f, "di %d dj %d\n", diff_i, diff_j);
           fclose(f);
 
@@ -553,12 +634,12 @@ bool CheckForObviousMines(int write_fd)
   return ret;
 }
 
-bool CheckForSolution(int write_fd)
+bool CheckForSolution(const char *revealed_board, int write_fd)
 {
-  return CheckForObviousMines(write_fd);
+  return CheckForObviousMines(revealed_board, write_fd);
 }
 
-void RevealRandomLocation(int write_fd)
+void RevealRandomLocation(const char *revealed_board, int write_fd)
 {
   int indices[ROWS * COLS];
   for (int i = 0; i < ROWS * COLS; ++i)
@@ -578,14 +659,14 @@ void RevealRandomLocation(int write_fd)
     if (is_revealed_board[row_ind][col_ind])
       continue;
 
-    FILE *f = fopen("/tmp/a.txt", "a");
+    FILE *f = fopen("/tmp/user.txt", "a");
     fprintf(f, "1 i %d j %d\n", row_ind, col_ind);
     fclose(f);
 
     int diff_i = row_ind - pos.i;
     int diff_j = col_ind - pos.j;
 
-    f = fopen("/tmp/a.txt", "a");
+    f = fopen("/tmp/user.txt", "a");
     fprintf(f, "2 di %d dj %d\n", diff_i, diff_j);
     fclose(f);
 
@@ -593,48 +674,78 @@ void RevealRandomLocation(int write_fd)
 
     char c = ' ';
     write(write_fd, &c, sizeof(c));
-    usleep(1000);
     break;
   }
 }
 
 void *run_user(void *arguments)
 {
-  struct fds fd = *(struct fds *)arguments;
+  struct all_fds all_fds = *(struct all_fds *)arguments;
+
+  char revealed_board[ROWS * COLS];
 
   for (int i = 0; ; ++i)
   {
-    FILE *f = fopen("/tmp/a.txt", "a");
+    // TODO (oc): get pos too
+    int num_read = read(all_fds.to_user_fd.read_fd, revealed_board, ROWS * COLS);
+    if (num_read <= 0) {
+      usleep(1000);
+      continue;
+    }
+
+    FILE *f = fopen("/tmp/user.txt", "a");
+    fprintf(f, "num_read %d\n", num_read);
+
+    for (int m = 0; m < ROWS; ++m) {
+      for (int j = 0; j < COLS; ++j)
+      {
+        fprintf(f, "----");
+      }
+      fprintf(f, "-\n");
+      for (int n = 0; n < COLS; ++n) {
+        fprintf(f, "| %c ", revealed_board[m * COLS + n]);
+      }
+      fprintf(f, "|\n");
+    }
+    for (int j = 0; j < COLS; ++j)
+    {
+      fprintf(f, "----");
+    }
+    fprintf(f, "-\n");
+
     fprintf(f, "before CheckForSolution\n");
     fclose(f);
-    if (CheckForSolution(fd.write_fd))
+    if (CheckForSolution(revealed_board, all_fds.to_game_fd.write_fd))
       continue;
 
-    f = fopen("/tmp/a.txt", "a");
+    f = fopen("/tmp/user.txt", "a");
     fprintf(f, "before RevealRandomLocation\n");
     fclose(f);
-    RevealRandomLocation(fd.write_fd);
+    RevealRandomLocation(revealed_board, all_fds.to_game_fd.write_fd);
   }
 
   char c = 'q';
-  write(fd.write_fd, &c, sizeof(c));
+  write(all_fds.to_game_fd.write_fd, &c, sizeof(c));
 
-  close(fd.write_fd);
+  close(all_fds.to_game_fd.write_fd);
+  close(all_fds.to_user_fd.read_fd);
 
   return NULL;
 }
 
 int main()
 {
-  struct fds fd;
-  open_channel(&fd.read_fd, &fd.write_fd);
+  struct all_fds all_fds;
+  open_channel(&all_fds.to_game_fd.read_fd, &all_fds.to_game_fd.write_fd);
+
+  open_channel(&all_fds.to_user_fd.read_fd, &all_fds.to_user_fd.write_fd);
 
   pthread_t game;
   pthread_t user;
 
-  pthread_create(&game, NULL, run_game, &fd);
+  pthread_create(&game, NULL, run_game, &all_fds);
   sleep(2);
-  pthread_create(&user, NULL, run_user, &fd);
+  pthread_create(&user, NULL, run_user, &all_fds);
 
   pthread_join(game, NULL);
   pthread_join(user, NULL);
