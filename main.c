@@ -624,9 +624,9 @@ bool CheckForObviousMines(const char *revealed_board, int write_fd)
             char c = ' ';
             write(write_fd, &c, sizeof(c));
             usleep(100000);
+            return true;
           }
         }
-        return true;
       }
       if (val != sum_unrevealed + sum_flags)
         continue;
