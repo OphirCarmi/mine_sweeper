@@ -10,7 +10,6 @@
 
 #include "common/common.h"
 
-#define PORT 8080
 #define BUFFER_SIZE 1024
 
 #define NUM_MINES (NUM_CELLS / 7)
@@ -349,18 +348,13 @@ void write_revealed_board(char *revealed_board, int sock)
   // fprintf(f, "\n\n");
   // fclose(f);
 
-  struct message curr;
-  curr.type = 0;
-  curr.len = NUM_CELLS + sizeof(pos);
-  char mem[sizeof(curr) + NUM_CELLS + sizeof(pos)];
+  char mem[NUM_CELLS + sizeof(pos)];
   char *ptr = mem;
-  memcpy(ptr, &curr, sizeof(curr));
-  ptr += sizeof(curr);
   memcpy(ptr, revealed_board, NUM_CELLS);
   ptr += NUM_CELLS;
   memcpy(ptr, &pos, sizeof(pos));
 
-  write(sock, mem, sizeof(mem));
+  send_message(sock, 0, mem);
 }
 
 void run_game(int sock)
@@ -406,14 +400,15 @@ void run_game(int sock)
     refresh();
 
     char c;
-    if (!get_message(sock, 1, &c))
+    int msg_type;
+    if (!get_message(sock, &msg_type, &c))
     {
       usleep(10000);
       continue;
     }
 
     bool should_break = false;
-    bool new_game = false;
+    bool lose = false;
     bool board_changed = false;
     int curr;
     switch (c)
@@ -443,7 +438,7 @@ void run_game(int sock)
       break;
     case ' ':
       // אם המיקום המבוקש הוא מוקש נסיים את המשחק ואם לא אז נחשוף תא אחד או יותר
-      new_game = !RevealLocation();
+      lose = !RevealLocation();
       board_changed = true;
       break;
     case 'f':
@@ -464,8 +459,11 @@ void run_game(int sock)
     usleep(50000);
 
     // נבדוק האם המשתמש/ת ניצח, כלומר סיימ/ה לחשוף את כל התאים שאינם מוקשים
-    if (new_game || CheckWin())
-      break; // Init();
+    bool win = CheckWin();
+    if (lose || win) {
+      send_message(sock, 2, &win);
+      Init();
+    }
   }
 
   endwin();

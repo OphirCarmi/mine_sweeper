@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#define PORT 1212
+
 #define ROWS 10
 #define COLS 10
 
@@ -37,7 +39,8 @@ struct message {
 
 struct message messages[] = {
   {0, ROWS * COLS + 2 * sizeof(int)}, // board + pos
-  {1, 1} // key
+  {1, 1}, // key
+  {2, 1} // win/loose
 };
 
 struct Position
@@ -46,15 +49,16 @@ struct Position
   int j;
 };
 
-bool get_message(int sock, int wanted_type, void *data) {
+bool get_message(int sock, int *type, void *data) {
   struct message msg;
   int num_read = read(sock, &msg.type, sizeof(msg.type));
-  FILE *f = fopen("/tmp/common.txt", "a");
-  fprintf(f, "1 num_read %d\n", num_read);
-  fclose(f);
+  // FILE *f = fopen("/tmp/common.txt", "a");
+  // fprintf(f, "1 num_read %d\n", num_read);
+  // fclose(f);
   if (num_read != sizeof(msg.type)) return false;
 
-  if (msg.type != wanted_type) return false;
+  *type = msg.type;
+  // if (msg.type != wanted_type) return false;
 
   num_read = read(sock, &msg.len, sizeof(msg.len));
   if (num_read != sizeof(msg.type)) return false;

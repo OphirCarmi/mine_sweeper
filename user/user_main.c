@@ -7,8 +7,6 @@
 
 #include "common/common.h"
 
-#define PORT 8080
-
 static struct Position pos;
 
 void MoveByDiff(int sock, int diff_i, int diff_j)
@@ -42,7 +40,6 @@ void MoveByDiff(int sock, int diff_i, int diff_j)
 
 bool CheckForObviousMines(const char *revealed_board, int sock)
 {
-  bool ret = false;
   for (int i = 0; i < ROWS; ++i)
   {
     for (int j = 0; j < COLS; ++j)
@@ -154,15 +151,12 @@ bool CheckForObviousMines(const char *revealed_board, int sock)
           send_message(sock, 1, &c);
           usleep(100000);
 
-          ret = true;
-          break;
+          return true;
         }
       }
-      if (ret)
-        return ret;
     }
   }
-  return ret;
+  return false;
 }
 
 bool CheckForSolution(const char *revealed_board, int sock)
@@ -233,6 +227,13 @@ int CheckEnd(const char *revealed_board)
   return 1; // win
 }
 
+enum EndGame
+{
+  Lose = -1,
+  Not,
+  Win
+};
+
 void run_user(int sock)
 {
   char revealed_board[NUM_CELLS];
@@ -240,20 +241,33 @@ void run_user(int sock)
   char msg[NUM_CELLS + sizeof(pos)];
   for (int i = 0;; ++i)
   {
-    if (!get_message(sock, 0, &msg))
+    int msg_type;
+    if (!get_message(sock, &msg_type, &msg))
     {
       usleep(1000);
       continue;
     }
 
+    enum EndGame end_game = Not;
     char *ptr = msg;
-    memcpy(revealed_board, ptr, NUM_CELLS);
-    ptr += NUM_CELLS;
-    memcpy(&pos, ptr, sizeof(pos));
-
-    if (CheckEnd(revealed_board))
+    switch (msg_type)
+    {
+    case 0:
+      memcpy(revealed_board, ptr, NUM_CELLS);
+      ptr += NUM_CELLS;
+      memcpy(&pos, ptr, sizeof(pos));
       break;
+    case 2:
+      end_game = msg[0] ? Win : Lose;
+      break;
+    }
 
+    if (end_game) {
+      FILE *f = fopen("/tmp/user.txt", "a");
+      fprintf(f, "end_game %d\n", end_game);
+      fclose(f);
+      continue;
+    }
     // FILE *f = fopen("/tmp/user.txt", "a");
     // fprintf(f, "num_read %d\n", num_read);
 
