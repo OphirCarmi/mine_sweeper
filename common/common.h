@@ -7,6 +7,8 @@
 #define ROWS 10
 #define COLS 10
 
+#define NUM_CELLS (ROWS * COLS)
+
 static int8_t neighbours[][2] = {
     {-1, -1}, // למעלה משמאל
     {-1, 0},  // למעלה
@@ -34,28 +36,54 @@ struct message {
 };
 
 struct message messages[] = {
-  {0, ROWS * COLS}, // board
-  {1, 2 * sizeof(int)}, // pos
-  {2, 1} // key
+  {0, ROWS * COLS + 2 * sizeof(int)}, // board + pos
+  {1, 1} // key
+};
+
+struct Position
+{
+  int i;
+  int j;
 };
 
 bool get_message(int sock, int wanted_type, void *data) {
   struct message msg;
   int num_read = read(sock, &msg.type, sizeof(msg.type));
+  FILE *f = fopen("/tmp/common.txt", "a");
+  fprintf(f, "1 num_read %d\n", num_read);
+  fclose(f);
   if (num_read != sizeof(msg.type)) return false;
 
   if (msg.type != wanted_type) return false;
 
-  int num_read = read(sock, &msg.len, sizeof(msg.len));
+  num_read = read(sock, &msg.len, sizeof(msg.len));
   if (num_read != sizeof(msg.type)) return false;
 
   struct message curr = messages[msg.type];
   if (msg.len != curr.len) return false;
 
-  int num_read = read(sock, data, msg.len);
+  num_read = read(sock, data, msg.len);
   if (num_read != msg.len) return false;
 
   return true;
 }
+
+void send_message(int sock, int wanted_type, void *data) {
+  struct message curr = messages[wanted_type];
+  int tot_size = sizeof(curr) + curr.len;
+
+  char *mem = (char *)malloc(tot_size);
+  char *ptr = mem;
+  memcpy(ptr, &curr.type, sizeof(curr.type));
+  ptr += sizeof(curr.type);
+  memcpy(ptr, &curr.len, sizeof(curr.len));
+  ptr += sizeof(curr.len);
+  memcpy(ptr, data, curr.len);
+
+  write(sock, mem, tot_size);
+
+  free(mem);
+}
+
 
 #endif // COMMON_H

@@ -13,30 +13,24 @@
 #define PORT 8080
 #define BUFFER_SIZE 1024
 
-#define NUM_MINES (ROWS * COLS / 7)
+#define NUM_MINES (NUM_CELLS / 7)
 
 static int8_t hidden_board[ROWS][COLS] = {0};
 
 static bool is_revealed_board[ROWS][COLS] = {0};
 static bool is_flagged_board[ROWS][COLS] = {0};
 
-struct Position
-{
-  int i;
-  int j;
-};
-
 static struct Position pos;
 
 void PlaceMines()
 {
-  int indices[ROWS * COLS];
-  for (int i = 0; i < ROWS * COLS; ++i)
+  int indices[NUM_CELLS];
+  for (int i = 0; i < NUM_CELLS; ++i)
   {
     indices[i] = i;
   }
   // מלא במספרים עוקבים indices עכשיו המערך
-  // [0, 1, 2, 3, ..., ROWS * COLS - 1]
+  // [0, 1, 2, 3, ..., NUM_CELLS - 1]
   // כל מספר מתאים לתא בלוח המוקשים שלנו
   // אם נניח שמספר השורות הוא 5 ומספר העמודות הוא 10
   // -------------------------------------------
@@ -56,7 +50,7 @@ void PlaceMines()
   // זה נושא להרצאה אחרת
   for (int i = 0; i < NUM_MINES; ++i)
   {
-    int ind = i + rand() % (ROWS * COLS - i);
+    int ind = i + rand() % (NUM_CELLS - i);
     int temp = indices[ind];
     indices[ind] = indices[i];
     indices[i] = temp;
@@ -275,7 +269,7 @@ bool RevealLocation()
 
 bool CheckWin()
 {
-  int sum_unrevealed = ROWS * COLS;
+  int sum_unrevealed = NUM_CELLS;
   for (int i = 0; i < ROWS; ++i)
   {
     for (int j = 0; j < COLS; ++j)
@@ -355,7 +349,18 @@ void write_revealed_board(char *revealed_board, int sock)
   // fprintf(f, "\n\n");
   // fclose(f);
 
-  write(sock, revealed_board, ROWS * COLS);
+  struct message curr;
+  curr.type = 0;
+  curr.len = NUM_CELLS + sizeof(pos);
+  char mem[sizeof(curr) + NUM_CELLS + sizeof(pos)];
+  char *ptr = mem;
+  memcpy(ptr, &curr, sizeof(curr));
+  ptr += sizeof(curr);
+  memcpy(ptr, revealed_board, NUM_CELLS);
+  ptr += NUM_CELLS;
+  memcpy(ptr, &pos, sizeof(pos));
+
+  write(sock, mem, sizeof(mem));
 }
 
 void run_game(int sock)
@@ -384,7 +389,7 @@ void run_game(int sock)
 
   Init();
 
-  char revealed_board[ROWS * COLS];
+  char revealed_board[NUM_CELLS];
 
   update_revealed_board(revealed_board);
   write_revealed_board(revealed_board, sock);
@@ -401,10 +406,7 @@ void run_game(int sock)
     refresh();
 
     char c;
-    bool get_message(int sock, int wanted_type, &c) {
-
-    ssize_t num_read = read(sock, &c, sizeof(c));
-    if (num_read <= 0)
+    if (!get_message(sock, 1, &c))
     {
       usleep(10000);
       continue;

@@ -9,36 +9,38 @@
 
 #define PORT 8080
 
-void MoveByDiff(int write_fd, int diff_i, int diff_j)
+static struct Position pos;
+
+void MoveByDiff(int sock, int diff_i, int diff_j)
 {
   for (int m = 0; m < diff_i; ++m)
   {
     char c = 'x';
-    write(write_fd, &c, sizeof(c));
+    send_message(sock, 1, &c);
     usleep(100000);
   }
   for (int m = 0; m < -diff_i; ++m)
   {
     char c = 'w';
-    write(write_fd, &c, sizeof(c));
+    send_message(sock, 1, &c);
     usleep(100000);
   }
 
   for (int m = 0; m < diff_j; ++m)
   {
     char c = 'd';
-    write(write_fd, &c, sizeof(c));
+    send_message(sock, 1, &c);
     usleep(100000);
   }
   for (int m = 0; m < -diff_j; ++m)
   {
     char c = 'a';
-    write(write_fd, &c, sizeof(c));
+    send_message(sock, 1, &c);
     usleep(100000);
   }
 }
 
-bool CheckForObviousMines(const char *revealed_board, int write_fd)
+bool CheckForObviousMines(const char *revealed_board, int sock)
 {
   bool ret = false;
   for (int i = 0; i < ROWS; ++i)
@@ -100,18 +102,18 @@ bool CheckForObviousMines(const char *revealed_board, int write_fd)
 
           if (revealed_board[neigh_row_ind * COLS + neigh_col_ind] == ' ')
           {
-            int diff_i = neigh_row_ind;// - pos.i;
-            int diff_j = neigh_col_ind;// - pos.j;
+            int diff_i = neigh_row_ind - pos.i;
+            int diff_j = neigh_col_ind - pos.j;
 
             // f = fopen("/tmp/user.txt", "a");
             // fprintf(f, "3 di %d dj %d\n", diff_i, diff_j);
             // fclose(f);
 
-            MoveByDiff(write_fd, diff_i, diff_j);
+            MoveByDiff(sock, diff_i, diff_j);
 
-            // char c = ' ';
-            // write(write_fd, &c, sizeof(c));
-            // usleep(100000);
+            char c = ' ';
+            send_message(sock, 1, &c);
+            usleep(100000);
             return true;
           }
         }
@@ -139,17 +141,17 @@ bool CheckForObviousMines(const char *revealed_board, int write_fd)
           // fprintf(f, "i %d j %d\n", neigh_row_ind, neigh_col_ind);
           // fclose(f);
 
-          int diff_i = neigh_row_ind;// - pos.i;
-          int diff_j = neigh_col_ind;// - pos.j;
+          int diff_i = neigh_row_ind - pos.i;
+          int diff_j = neigh_col_ind - pos.j;
 
           // f = fopen("/tmp/user.txt", "a");
           // fprintf(f, "di %d dj %d\n", diff_i, diff_j);
           // fclose(f);
 
-          MoveByDiff(write_fd, diff_i, diff_j);
+          MoveByDiff(sock, diff_i, diff_j);
 
           char c = 'f';
-          write(write_fd, &c, sizeof(c));
+          send_message(sock, 1, &c);
           usleep(100000);
 
           ret = true;
@@ -163,22 +165,22 @@ bool CheckForObviousMines(const char *revealed_board, int write_fd)
   return ret;
 }
 
-bool CheckForSolution(const char *revealed_board, int write_fd)
+bool CheckForSolution(const char *revealed_board, int sock)
 {
-  return CheckForObviousMines(revealed_board, write_fd);
+  return CheckForObviousMines(revealed_board, sock);
 }
 
-void RevealRandomLocation(const char *revealed_board, int write_fd)
+void RevealRandomLocation(const char *revealed_board, int sock)
 {
-  int indices[ROWS * COLS];
-  for (int i = 0; i < ROWS * COLS; ++i)
+  int indices[NUM_CELLS];
+  for (int i = 0; i < NUM_CELLS; ++i)
   {
     indices[i] = i;
   }
 
-  for (int i = 0; i < ROWS * COLS; ++i)
+  for (int i = 0; i < NUM_CELLS; ++i)
   {
-    int ind = i + rand() % (ROWS * COLS - i);
+    int ind = i + rand() % (NUM_CELLS - i);
     int temp = indices[ind];
     indices[ind] = indices[i];
     indices[i] = temp;
@@ -192,17 +194,17 @@ void RevealRandomLocation(const char *revealed_board, int write_fd)
     // fprintf(f, "1 i %d j %d\n", row_ind, col_ind);
     // fclose(f);
 
-    int diff_i = row_ind;// - pos.i;
-    int diff_j = col_ind;// - pos.j;
+    int diff_i = row_ind - pos.i;
+    int diff_j = col_ind - pos.j;
 
     // f = fopen("/tmp/user.txt", "a");
     // fprintf(f, "2 di %d dj %d\n", diff_i, diff_j);
     // fclose(f);
 
-    MoveByDiff(write_fd, diff_i, diff_j);
+    MoveByDiff(sock, diff_i, diff_j);
 
     char c = ' ';
-    write(write_fd, &c, sizeof(c));
+    send_message(sock, 1, &c);
     break;
   }
 }
@@ -233,20 +235,21 @@ int CheckEnd(const char *revealed_board)
 
 void run_user(int sock)
 {
-  // struct all_fds all_fds = *(struct all_fds *)arguments;
+  char revealed_board[NUM_CELLS];
 
-  char revealed_board[ROWS * COLS];
-
+  char msg[NUM_CELLS + sizeof(pos)];
   for (int i = 0;; ++i)
   {
-    // TODO (oc): get pos too
-    bool get_message(int sock, int wanted_type, void *data) {
-
-    if (!get_message(sock, 0, revealed_board))
+    if (!get_message(sock, 0, &msg))
     {
       usleep(1000);
       continue;
     }
+
+    char *ptr = msg;
+    memcpy(revealed_board, ptr, NUM_CELLS);
+    ptr += NUM_CELLS;
+    memcpy(&pos, ptr, sizeof(pos));
 
     if (CheckEnd(revealed_board))
       break;
@@ -286,7 +289,7 @@ void run_user(int sock)
   }
 
   char c = 'q';
-  write(sock, &c, sizeof(c));
+  send_message(sock, 1, &c);
   usleep(100000);
 }
 
