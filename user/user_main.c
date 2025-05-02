@@ -150,29 +150,29 @@ bool CheckForObviousMines(const char *revealed_board, int sock)
 
           MoveByDiff(sock, diff_i, diff_j);
 
-          FILE *f = fopen("/tmp/user.txt", "a");
-          for (int m = 0; m < ROWS; ++m)
-          {
-            for (int j = 0; j < COLS; ++j)
-            {
-              fprintf(f, "----");
-            }
-            fprintf(f, "-\n");
-            for (int n = 0; n < COLS; ++n)
-            {
-              fprintf(f, "| %c ", revealed_board[m * COLS + n]);
-            }
-            fprintf(f, "|\n");
-          }
-          for (int j = 0; j < COLS; ++j)
-          {
-            fprintf(f, "----");
-          }
-          fprintf(f, "-\n");
+          // FILE *f = fopen("/tmp/user.txt", "a");
+          // for (int m = 0; m < ROWS; ++m)
+          // {
+          //   for (int j = 0; j < COLS; ++j)
+          //   {
+          //     fprintf(f, "----");
+          //   }
+          //   fprintf(f, "-\n");
+          //   for (int n = 0; n < COLS; ++n)
+          //   {
+          //     fprintf(f, "| %c ", revealed_board[m * COLS + n]);
+          //   }
+          //   fprintf(f, "|\n");
+          // }
+          // for (int j = 0; j < COLS; ++j)
+          // {
+          //   fprintf(f, "----");
+          // }
+          // fprintf(f, "-\n");
 
-          fprintf(f, "pos %d,%d\n", pos.i, pos.j);
+          // fprintf(f, "pos %d,%d\n", pos.i, pos.j);
 
-          fclose(f);
+          // fclose(f);
 
           // printf("f in (%d, %d)\n", neigh_row_ind, neigh_col_ind);
           // getc(stdin);
@@ -270,12 +270,12 @@ void run_one_game(int sock) {
       break;
     }
 
-    FILE *f = fopen("/tmp/user.txt", "a");
-    fprintf(f, "msg_type %d\n", msg_type);
-    fclose(f);
+    // FILE *f = fopen("/tmp/user.txt", "a");
+    // fprintf(f, "msg_type %d\n", msg_type);
+    // fclose(f);
 
     if (end_game) {
-      FILE *f = fopen("/tmp/user.txt", "a");
+      FILE *f = fopen("/Users/user/work/tutorials/mine_sweeper/user.txt", "a");
       fprintf(f, "end_game %d\n", end_game);
       fclose(f);
       break;

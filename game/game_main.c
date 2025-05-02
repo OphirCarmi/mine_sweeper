@@ -442,9 +442,9 @@ int run_one_game(int sock) {
     win = CheckWin();
     if (lose || win)
     {
-      FILE *f = fopen("/tmp/game.txt", "a");
-      fprintf(f, "win %d\n", win);
-      fclose(f);
+      // FILE *f = fopen("/tmp/game.txt", "a");
+      // fprintf(f, "win %d\n", win);
+      // fclose(f);
       send_message(sock, 2, &win);
 
       sleep(3);
