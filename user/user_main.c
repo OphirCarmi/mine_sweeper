@@ -50,6 +50,9 @@ bool CheckForObviousMines(const char *revealed_board, int sock)
       if (revealed_board[i * COLS + j] == 'f')
         continue;
 
+      // if (revealed_board[i * COLS + j] == '*')
+      //   return true;
+
       int8_t val = revealed_board[i * COLS + j] - '0';
       int8_t sum_unrevealed = 0;
       int8_t sum_flags = 0;
@@ -147,6 +150,33 @@ bool CheckForObviousMines(const char *revealed_board, int sock)
 
           MoveByDiff(sock, diff_i, diff_j);
 
+          FILE *f = fopen("/tmp/user.txt", "a");
+          for (int m = 0; m < ROWS; ++m)
+          {
+            for (int j = 0; j < COLS; ++j)
+            {
+              fprintf(f, "----");
+            }
+            fprintf(f, "-\n");
+            for (int n = 0; n < COLS; ++n)
+            {
+              fprintf(f, "| %c ", revealed_board[m * COLS + n]);
+            }
+            fprintf(f, "|\n");
+          }
+          for (int j = 0; j < COLS; ++j)
+          {
+            fprintf(f, "----");
+          }
+          fprintf(f, "-\n");
+
+          fprintf(f, "pos %d,%d\n", pos.i, pos.j);
+
+          fclose(f);
+
+          // printf("f in (%d, %d)\n", neigh_row_ind, neigh_col_ind);
+          // getc(stdin);
+
           char c = 'f';
           send_message(sock, 1, &c);
           usleep(100000);
@@ -167,27 +197,29 @@ bool CheckForSolution(const char *revealed_board, int sock)
 void RevealRandomLocation(const char *revealed_board, int sock)
 {
   int indices[NUM_CELLS];
+  int num_unrevealed = 0;
   for (int i = 0; i < NUM_CELLS; ++i)
   {
-    indices[i] = i;
+    if (revealed_board[i] != ' ')
+      continue;
+
+    indices[num_unrevealed] = i;
+    ++num_unrevealed;
   }
 
-  for (int i = 0; i < NUM_CELLS; ++i)
+  for (int i = 0; i < num_unrevealed; ++i)
   {
-    int ind = i + rand() % (NUM_CELLS - i);
+    int ind = i + rand() % (num_unrevealed - i);
     int temp = indices[ind];
     indices[ind] = indices[i];
     indices[i] = temp;
-
-    int row_ind = temp / COLS;
-    int col_ind = temp % COLS;
-    if (revealed_board[row_ind * COLS + col_ind] != ' ')
-      continue;
 
     // FILE *f = fopen("/tmp/user.txt", "a");
     // fprintf(f, "1 i %d j %d\n", row_ind, col_ind);
     // fclose(f);
 
+    int row_ind = temp / COLS;
+    int col_ind = temp % COLS;
     int diff_i = row_ind - pos.i;
     int diff_j = col_ind - pos.j;
 
@@ -203,30 +235,6 @@ void RevealRandomLocation(const char *revealed_board, int sock)
   }
 }
 
-int CheckEnd(const char *revealed_board)
-{
-  bool ret = false;
-  for (int i = 0; i < ROWS; ++i)
-  {
-    for (int j = 0; j < COLS; ++j)
-    {
-      if (revealed_board[i * COLS + j] == '*')
-        return -1; // lose
-    }
-  }
-
-  for (int i = 0; i < ROWS; ++i)
-  {
-    for (int j = 0; j < COLS; ++j)
-    {
-      if (revealed_board[i * COLS + j] == ' ')
-        return 0; // not end
-    }
-  }
-
-  return 1; // win
-}
-
 enum EndGame
 {
   Lose = -1,
@@ -234,12 +242,12 @@ enum EndGame
   Win
 };
 
-void run_user(int sock)
-{
+void run_one_game(int sock) {
   char revealed_board[NUM_CELLS];
 
   char msg[NUM_CELLS + sizeof(pos)];
-  for (int i = 0;; ++i)
+
+  for (;;)
   {
     int msg_type;
     if (!get_message(sock, &msg_type, &msg))
@@ -262,11 +270,15 @@ void run_user(int sock)
       break;
     }
 
+    FILE *f = fopen("/tmp/user.txt", "a");
+    fprintf(f, "msg_type %d\n", msg_type);
+    fclose(f);
+
     if (end_game) {
       FILE *f = fopen("/tmp/user.txt", "a");
       fprintf(f, "end_game %d\n", end_game);
       fclose(f);
-      continue;
+      break;
     }
     // FILE *f = fopen("/tmp/user.txt", "a");
     // fprintf(f, "num_read %d\n", num_read);
@@ -300,6 +312,13 @@ void run_user(int sock)
     // fprintf(f, "before RevealRandomLocation\n");
     // fclose(f);
     RevealRandomLocation(revealed_board, sock);
+  }
+}
+
+void run_user(int sock)
+{
+  for (;;) {
+    run_one_game(sock);
   }
 
   char c = 'q';

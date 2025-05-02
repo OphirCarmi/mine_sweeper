@@ -258,7 +258,6 @@ bool RevealLocation()
     DrawBoard();
     printw("\n\nBOOOOOOOOOM!!!! GAME OVER!\n");
     refresh();
-    sleep(3);
     return false;
   default:
     is_revealed_board[pos.i][pos.j] = true;
@@ -280,14 +279,24 @@ bool CheckWin()
   if (sum_unrevealed > NUM_MINES)
     return false;
 
-  memset(is_revealed_board, -1, sizeof(is_revealed_board));
+  int sum_flags = 0;
+  for (int i = 0; i < ROWS; ++i)
+  {
+    for (int j = 0; j < COLS; ++j)
+    {
+      sum_flags += is_flagged_board[i][j];
+    }
+  }
+
+  if (sum_flags != NUM_MINES)
+    return false;
+
+  // memset(is_revealed_board, -1, sizeof(is_revealed_board));
 
   DrawBoard();
 
   printw("\nYOU WON!!!\n");
   refresh();
-
-  sleep(3);
 
   return true;
 }
@@ -357,36 +366,16 @@ void write_revealed_board(char *revealed_board, int sock)
   send_message(sock, 0, mem);
 }
 
-void run_game(int sock)
-{
-  // struct all_fds all_fds = *(struct all_fds *)arguments;
-
-  int ch;
-
-  /* Curses Initialisations */
-  initscr();
-  use_default_colors();
-  start_color();
-  init_pair(1, -1, COLOR_GREEN);
-  init_pair(2, -1, -1);
-  raw();
-  keypad(stdscr, TRUE);
-  noecho();
-
-  pos.i = 0;
-  pos.j = 0;
-
-  srand(time(NULL));
-
-  // צ׳יט שחושף את כל הלוח
-  // memset(is_revealed_board, -1, sizeof(is_revealed_board));
-
-  Init();
-
+int run_one_game(int sock) {
   char revealed_board[NUM_CELLS];
 
+  Init();
   update_revealed_board(revealed_board);
   write_revealed_board(revealed_board, sock);
+
+  bool should_exit = false;
+
+  bool win = false;
 
   for (;;)
   {
@@ -403,18 +392,17 @@ void run_game(int sock)
     int msg_type;
     if (!get_message(sock, &msg_type, &c))
     {
-      usleep(10000);
+      usleep(1000);
       continue;
     }
 
-    bool should_break = false;
     bool lose = false;
     bool board_changed = false;
     int curr;
     switch (c)
     {
     case 'q':
-      should_break = true;
+      should_exit = true;
       break;
     case 'w': // up
       curr = pos.i - 1;
@@ -447,23 +435,58 @@ void run_game(int sock)
       break;
     }
 
-    if (should_break)
+    if (should_exit)
       break;
+
+    // נבדוק האם המשתמש/ת ניצח, כלומר סיימ/ה לחשוף את כל התאים שאינם מוקשים
+    win = CheckWin();
+    if (lose || win)
+    {
+      FILE *f = fopen("/tmp/game.txt", "a");
+      fprintf(f, "win %d\n", win);
+      fclose(f);
+      send_message(sock, 2, &win);
+
+      sleep(3);
+      break;
+    }
 
     update_revealed_board(revealed_board);
     if (board_changed)
     {
       write_revealed_board(revealed_board, sock);
     }
+  }
 
-    usleep(50000);
+  if (should_exit) return -1;
 
-    // נבדוק האם המשתמש/ת ניצח, כלומר סיימ/ה לחשוף את כל התאים שאינם מוקשים
-    bool win = CheckWin();
-    if (lose || win) {
-      send_message(sock, 2, &win);
-      Init();
-    }
+  return win;
+}
+
+void run_game(int sock)
+{
+  // struct all_fds all_fds = *(struct all_fds *)arguments;
+
+  int ch;
+
+  /* Curses Initialisations */
+  initscr();
+  use_default_colors();
+  start_color();
+  init_pair(1, -1, COLOR_GREEN);
+  init_pair(2, -1, -1);
+  raw();
+  keypad(stdscr, TRUE);
+  noecho();
+
+  srand(time(NULL));
+
+  // צ׳יט שחושף את כל הלוח
+  // memset(is_revealed_board, -1, sizeof(is_revealed_board));
+
+  for (;;) {
+    int ret = run_one_game(sock);
+    if (ret < 0) break;
   }
 
   endwin();
