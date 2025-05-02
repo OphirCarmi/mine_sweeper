@@ -15,26 +15,26 @@ void MoveByDiff(int sock, int diff_i, int diff_j)
   {
     char c = 'x';
     send_message(sock, 1, &c);
-    usleep(10000);
+    // usleep(10000);
   }
   for (int m = 0; m < -diff_i; ++m)
   {
     char c = 'w';
     send_message(sock, 1, &c);
-    usleep(10000);
+    // usleep(10000);
   }
 
   for (int m = 0; m < diff_j; ++m)
   {
     char c = 'd';
     send_message(sock, 1, &c);
-    usleep(10000);
+    // usleep(10000);
   }
   for (int m = 0; m < -diff_j; ++m)
   {
     char c = 'a';
     send_message(sock, 1, &c);
-    usleep(10000);
+    // usleep(10000);
   }
 }
 
@@ -113,7 +113,7 @@ bool CheckForObviousMines(const char *revealed_board, int sock)
 
             char c = ' ';
             send_message(sock, 1, &c);
-            usleep(10000);
+            // usleep(10000);
             return true;
           }
         }
@@ -179,7 +179,7 @@ bool CheckForObviousMines(const char *revealed_board, int sock)
 
           char c = 'f';
           send_message(sock, 1, &c);
-          usleep(10000);
+          // usleep(10000);
 
           return true;
         }
@@ -249,7 +249,7 @@ bool CheckForAllMines(const char *revealed_board, int sock)
 
         char c = 'f';
         send_message(sock, 1, &c);
-        usleep(10000);
+        // usleep(10000);
 
         return true;
       }
@@ -394,7 +394,7 @@ void run_user(int sock)
 
   char c = 'q';
   send_message(sock, 1, &c);
-  usleep(10000);
+  // usleep(10000);
 }
 
 int main()

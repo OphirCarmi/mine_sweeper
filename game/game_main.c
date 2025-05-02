@@ -233,7 +233,7 @@ void RevealZeroes(int row_ind, int col_ind)
 
       DrawBoard();
       refresh();
-      usleep(10000);
+      usleep(1000);
 
       if (hidden_board[neigh_row_ind][neigh_col_ind] != 0)
         continue;
@@ -447,7 +447,7 @@ int run_one_game(int sock) {
       // fclose(f);
       send_message(sock, 2, &win);
 
-      usleep(100000);
+      // usleep(100000);
       break;
     }
 
