@@ -15,26 +15,26 @@ void MoveByDiff(int sock, int diff_i, int diff_j)
   {
     char c = 'x';
     send_message(sock, 1, &c);
-    usleep(100000);
+    usleep(10000);
   }
   for (int m = 0; m < -diff_i; ++m)
   {
     char c = 'w';
     send_message(sock, 1, &c);
-    usleep(100000);
+    usleep(10000);
   }
 
   for (int m = 0; m < diff_j; ++m)
   {
     char c = 'd';
     send_message(sock, 1, &c);
-    usleep(100000);
+    usleep(10000);
   }
   for (int m = 0; m < -diff_j; ++m)
   {
     char c = 'a';
     send_message(sock, 1, &c);
-    usleep(100000);
+    usleep(10000);
   }
 }
 
@@ -113,7 +113,7 @@ bool CheckForObviousMines(const char *revealed_board, int sock)
 
             char c = ' ';
             send_message(sock, 1, &c);
-            usleep(100000);
+            usleep(10000);
             return true;
           }
         }
@@ -179,7 +179,7 @@ bool CheckForObviousMines(const char *revealed_board, int sock)
 
           char c = 'f';
           send_message(sock, 1, &c);
-          usleep(100000);
+          usleep(10000);
 
           return true;
         }
@@ -189,9 +189,80 @@ bool CheckForObviousMines(const char *revealed_board, int sock)
   return false;
 }
 
+bool CheckForAllMines(const char *revealed_board, int sock)
+{
+  // return false;
+  // search for 1,2,1 horizontally
+  for (int i = 0; i < ROWS; ++i)
+  {
+    for (int j = 0; j < COLS; ++j)
+    {
+      if (revealed_board[i * COLS + j] != '2') continue;
+
+      // 'X' is out of board or number
+      char *expected[8] = {"XXX11   ", "   11XXX", " 1X X 1X", "X1 X X1 "};
+
+      for (int p = 0; p < 4; ++p) {
+        bool ok = true;
+        for (int k = 0; k < num_neighbours; ++k)
+        {
+          int neigh_row_ind = i + neighbours[k][0];
+          int neigh_col_ind = j + neighbours[k][1];
+          // נבדוק שהוא לא מעל או מתחת ללוח
+          switch(expected[p][k]) {
+            case 'X':
+              if (neigh_row_ind < 0 || neigh_row_ind >= ROWS || neigh_col_ind < 0 || neigh_col_ind >= COLS) {
+                break;
+              }
+              char neigh_val = revealed_board[neigh_row_ind * COLS + neigh_col_ind];
+              if (neigh_val < '0' || neigh_val > '8')
+                ok = false;
+              break;
+            case ' ':
+            // FALLTHROUGH
+            case '1':
+              if (neigh_row_ind < 0 || neigh_row_ind >= ROWS || neigh_col_ind < 0 || neigh_col_ind >= COLS)
+                {
+                  ok = false;
+                break;
+                }
+              if (revealed_board[neigh_row_ind * COLS + neigh_col_ind] != expected[p][k])
+                ok = false;
+              break;
+          }
+          if (!ok) break;
+        }
+        if (!ok) continue;
+
+        int flag_positions[4] = {5,0,0,2};
+
+        int neigh_row_ind = i + neighbours[flag_positions[p]][0];
+        int neigh_col_ind = j + neighbours[flag_positions[p]][1];
+
+        // printf("found %d,%d %d", i, j, p);
+        // getchar();
+
+        int diff_i = neigh_row_ind - pos.i;
+        int diff_j = neigh_col_ind - pos.j;
+
+        MoveByDiff(sock, diff_i, diff_j);
+
+        char c = 'f';
+        send_message(sock, 1, &c);
+        usleep(10000);
+
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 bool CheckForSolution(const char *revealed_board, int sock)
 {
-  return CheckForObviousMines(revealed_board, sock);
+  if (CheckForObviousMines(revealed_board, sock))
+    return true;
+  return CheckForAllMines(revealed_board, sock);
 }
 
 void RevealRandomLocation(const char *revealed_board, int sock)
@@ -323,7 +394,7 @@ void run_user(int sock)
 
   char c = 'q';
   send_message(sock, 1, &c);
-  usleep(100000);
+  usleep(10000);
 }
 
 int main()
