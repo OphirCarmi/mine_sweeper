@@ -233,7 +233,7 @@ void RevealZeroes(int row_ind, int col_ind)
 
       DrawBoard();
       refresh();
-      usleep(1000);
+      // usleep(1000);
 
       if (hidden_board[neigh_row_ind][neigh_col_ind] != 0)
         continue;
@@ -392,7 +392,7 @@ int run_one_game(int sock) {
     int msg_type;
     if (!get_message(sock, &msg_type, &c))
     {
-      usleep(1000);
+      usleep(10);
       continue;
     }
 
@@ -479,7 +479,7 @@ void run_game(int sock)
   keypad(stdscr, TRUE);
   noecho();
 
-  srand(time(NULL));
+  // srand(time(NULL));
 
   // צ׳יט שחושף את כל הלוח
   // memset(is_revealed_board, -1, sizeof(is_revealed_board));

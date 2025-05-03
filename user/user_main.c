@@ -197,50 +197,59 @@ bool CheckForAllMines(const char *revealed_board, int sock)
   {
     for (int j = 0; j < COLS; ++j)
     {
-      if (revealed_board[i * COLS + j] != '2') continue;
+      if (revealed_board[i * COLS + j] != '2')
+        continue;
 
       // 'X' is out of board or number
-      char *expected[8] = {"XXX11   ", "   11XXX", " 1X X 1X", "X1 X X1 "};
+      char *expected[12] = {"XXX11   ", "   11XXX", " 1X X 1X", "X1 X X1 ", "XXX12   ", "XXX21   ", "   12XXX", "   21XXX", " 1X X 2X", " 2X X 1X", "X2 X X1 ", "X1 X X2 "};
+      int flag_positions[12] = {5, 0, 0, 2, 6, 5, 1, 0, 3, 0, 2, 4};
 
-      for (int p = 0; p < 4; ++p) {
+      for (int p = 0; p < 12; ++p)
+      {
         bool ok = true;
         for (int k = 0; k < num_neighbours; ++k)
         {
           int neigh_row_ind = i + neighbours[k][0];
           int neigh_col_ind = j + neighbours[k][1];
           // נבדוק שהוא לא מעל או מתחת ללוח
-          switch(expected[p][k]) {
-            case 'X':
-              if (neigh_row_ind < 0 || neigh_row_ind >= ROWS || neigh_col_ind < 0 || neigh_col_ind >= COLS) {
-                break;
-              }
-              char neigh_val = revealed_board[neigh_row_ind * COLS + neigh_col_ind];
-              if (neigh_val < '0' || neigh_val > '8')
-                ok = false;
+          switch (expected[p][k])
+          {
+          case 'X':
+            if (neigh_row_ind < 0 || neigh_row_ind >= ROWS || neigh_col_ind < 0 || neigh_col_ind >= COLS)
+            {
               break;
-            case ' ':
-            // FALLTHROUGH
-            case '1':
-              if (neigh_row_ind < 0 || neigh_row_ind >= ROWS || neigh_col_ind < 0 || neigh_col_ind >= COLS)
-                {
-                  ok = false;
-                break;
-                }
-              if (revealed_board[neigh_row_ind * COLS + neigh_col_ind] != expected[p][k])
-                ok = false;
+            }
+            char neigh_val = revealed_board[neigh_row_ind * COLS + neigh_col_ind];
+            if (neigh_val < '0' || neigh_val > '8')
+              ok = false;
+            break;
+          case ' ':
+          // FALLTHROUGH
+          case '1':
+          // FALLTHROUGH
+          case '2':
+            if (neigh_row_ind < 0 || neigh_row_ind >= ROWS || neigh_col_ind < 0 || neigh_col_ind >= COLS)
+            {
+              ok = false;
               break;
+            }
+            if (revealed_board[neigh_row_ind * COLS + neigh_col_ind] != expected[p][k])
+              ok = false;
+            break;
           }
-          if (!ok) break;
+          if (!ok)
+            break;
         }
-        if (!ok) continue;
-
-        int flag_positions[4] = {5,0,0,2};
+        if (!ok)
+          continue;
 
         int neigh_row_ind = i + neighbours[flag_positions[p]][0];
         int neigh_col_ind = j + neighbours[flag_positions[p]][1];
 
-        // printf("found %d,%d %d", i, j, p);
-        // getchar();
+        // if (p >= 4) {
+        //   printf("found %d,%d %d", i, j, p);
+        //   getchar();
+        // }
 
         int diff_i = neigh_row_ind - pos.i;
         int diff_j = neigh_col_ind - pos.j;
@@ -249,7 +258,7 @@ bool CheckForAllMines(const char *revealed_board, int sock)
 
         char c = 'f';
         send_message(sock, 1, &c);
-        // usleep(10000);
+        // usleep(1000000);
 
         return true;
       }
@@ -274,8 +283,34 @@ void RevealRandomLocation(const char *revealed_board, int sock)
     if (revealed_board[i] != ' ')
       continue;
 
+    // check for neigbours without numbers greater than 0
+    int k = 0;
+    for (; k < num_neighbours; ++k)
+    {
+      int neigh_row_ind = i / COLS + neighbours[k][0];
+      int neigh_col_ind = i % COLS + neighbours[k][1];
+      if (neigh_row_ind < 0 || neigh_row_ind >= ROWS || neigh_col_ind < 0 || neigh_col_ind >= COLS)
+        continue;
+      char val = revealed_board[neigh_row_ind * COLS + neigh_col_ind];
+      if (val >= '1' && val <= '8')
+        break;
+    }
+    if (k != num_neighbours)
+      continue;
     indices[num_unrevealed] = i;
     ++num_unrevealed;
+  }
+
+  if (!num_unrevealed)
+  {
+    for (int i = 0; i < NUM_CELLS; ++i)
+    {
+      if (revealed_board[i] != ' ')
+        continue;
+
+      indices[num_unrevealed] = i;
+      ++num_unrevealed;
+    }
   }
 
   for (int i = 0; i < num_unrevealed; ++i)
@@ -313,7 +348,8 @@ enum EndGame
   Win
 };
 
-void run_one_game(int sock) {
+void run_one_game(int sock)
+{
   char revealed_board[NUM_CELLS];
 
   char msg[NUM_CELLS + sizeof(pos)];
@@ -323,7 +359,7 @@ void run_one_game(int sock) {
     int msg_type;
     if (!get_message(sock, &msg_type, &msg))
     {
-      usleep(1000);
+      usleep(10);
       continue;
     }
 
@@ -345,7 +381,8 @@ void run_one_game(int sock) {
     // fprintf(f, "msg_type %d\n", msg_type);
     // fclose(f);
 
-    if (end_game) {
+    if (end_game)
+    {
       FILE *f = fopen("/Users/user/work/tutorials/mine_sweeper/user.txt", "a");
       fprintf(f, "end_game %d\n", end_game);
       fclose(f);
@@ -388,7 +425,8 @@ void run_one_game(int sock) {
 
 void run_user(int sock)
 {
-  for (;;) {
+  for (int i = 0; i < 1000; ++i)
+  {
     run_one_game(sock);
   }
 
