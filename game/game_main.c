@@ -7,108 +7,78 @@
 #include <sys/queue.h>
 #include <ncurses.h>
 #include <arpa/inet.h>
+#include <locale.h>
 
 #include "common/common.h"
 
 #define BUFFER_SIZE 1024
 
-#define NUM_MINES (NUM_CELLS / 7)
-
-static int8_t hidden_board[ROWS][COLS] = {0};
-
-static bool is_revealed_board[ROWS][COLS] = {0};
-static bool is_flagged_board[ROWS][COLS] = {0};
-
-static struct Position pos;
-
-void PlaceMines()
+struct Game
 {
-  int indices[NUM_CELLS];
-  for (int i = 0; i < NUM_CELLS; ++i)
+  int8_t **hidden_board;
+
+  bool **is_revealed_board;
+  bool **is_flagged_board;
+
+  char *revealed_board;
+
+  struct Position pos;
+
+  struct GameConfig config;
+};
+
+void PlaceMines(struct Game *game)
+{
+  int num_cells = game->config.rows * game->config.cols;
+  int *indices = (int *)malloc(sizeof(*indices) * num_cells);
+  for (int i = 0; i < num_cells; ++i)
   {
     indices[i] = i;
   }
-  // מלא במספרים עוקבים indices עכשיו המערך
-  // [0, 1, 2, 3, ..., NUM_CELLS - 1]
-  // כל מספר מתאים לתא בלוח המוקשים שלנו
-  // אם נניח שמספר השורות הוא 5 ומספר העמודות הוא 10
-  // -------------------------------------------
-  // | 0  | 1  |  2  | ...            | 8 | 9  |
-  // -------------------------------------------
-  // | 10 | 11 | 12  | ...            | 18| 19 |
-  // -------------------------------------------
-  // | ...                                     |
-  // -------------------------------------------
-  // | ...                                     |
-  // -------------------------------------------
-  // | 40 | 41 | 42  | ...            | 48| 49 |
-  // -------------------------------------------
-  //
-  // עכשיו ניצור מקומות אקראיים לשים בהם את המוקשים
-  // נעשה זאת ע״י ערבוב המקומות הראשונים של המערך
-  // זה נושא להרצאה אחרת
-  for (int i = 0; i < NUM_MINES; ++i)
+  for (int i = 0; i < game->config.mines; ++i)
   {
-    int ind = i + rand() % (NUM_CELLS - i);
+    int ind = i + rand() % (num_cells - i);
     int temp = indices[ind];
     indices[ind] = indices[i];
     indices[i] = temp;
   }
 
-  // עכשיו המקומות הראשונים במערך הם אינדקסים אקראיים, למשל
-  // [12, 5, 23, 46, ...]
-  // בתאים אלה נשים את המוקשים
-
-  for (int i = 0; i < NUM_MINES; ++i)
+  for (int i = 0; i < game->config.mines; ++i)
   {
-    // בכל איטרציה נשים מוקש אחד ונעדכן את הערך של התאים השכנים שלו
     int ind = indices[i];
 
-    // נהפוך את האינדקס האקראי במערך החד-מימדי לשני אינדקסים בלוח שהוא מערך דו-מימדי
-    int row_ind = ind / COLS;
-    int col_ind = ind % COLS;
+    int row_ind = ind / game->config.cols;
+    int col_ind = ind % game->config.cols;
 
-    // מוקש יסומן בערך מיוחד (1-). יכולנו גם לבחור ערך אחר שלא מופיע בתא רגיל
-    // שאלת בונוס: איזה ערכים אפשר
-    hidden_board[row_ind][col_ind] = -1;
+    game->hidden_board[row_ind][col_ind] = -1;
 
-    // עכשיו הלוח נראה בערך ככה
-    // --------------------------------------------------------
-    // | 0 | -1| 0 | 0 | ...                          | 0 | 0 |
-    // --------------------------------------------------------
-    // | 0 | 0 | 0  |-1 | ...                    | -1 | 0 | 0 |
-    // --------------------------------------------------------
-    // ...
-
-    // עכשיו נעדכן את ערכי השכנים
-    // לכל תא יש בין שלושה לשמונה שכנים
     for (int k = 0; k < num_neighbours; ++k)
     {
-      // בכל איטרציה נעדכן שכן אחד אם הוא קיים (ולא נופל מחוץ ללוח)
       int neigh_row_ind = row_ind + neighbours[k][0];
-      // נבדוק שהוא לא מעל או מתחת ללוח
-      if (neigh_row_ind < 0 || neigh_row_ind >= ROWS)
+      if (neigh_row_ind < 0 || neigh_row_ind >= game->config.rows)
         continue;
 
       int neigh_col_ind = col_ind + neighbours[k][1];
       // נבדוק שהוא לא משמאל או מימין ללוח
-      if (neigh_col_ind < 0 || neigh_col_ind >= COLS)
+      if (neigh_col_ind < 0 || neigh_col_ind >= game->config.cols)
         continue;
 
       // נבדוק שהוא לא מוקש
-      if (hidden_board[neigh_row_ind][neigh_col_ind] != -1)
+      if (game->hidden_board[neigh_row_ind][neigh_col_ind] != -1)
       {
         // נוסיף אחד למנין המוקשים השכנים שלו (זוכרים שאתחלנו אותו לאפס בהתחלה? חשוב חשוב)
-        hidden_board[neigh_row_ind][neigh_col_ind]++;
+        game->hidden_board[neigh_row_ind][neigh_col_ind]++;
       }
     }
   }
+
+  free(indices);
 }
 
-void PrintCellValue(int i, int j)
+void PrintCellValue(struct Game *game, int i, int j)
 {
   printw(" ");
-  if (pos.i == i && pos.j == j)
+  if (game->pos.i == i && game->pos.j == j)
   {
     attrset(COLOR_PAIR(1));
   }
@@ -118,9 +88,9 @@ void PrintCellValue(int i, int j)
   }
 
   // נבדוק שהתא הזה כבר חשוף למשתמש
-  if (is_revealed_board[i][j])
+  if (game->is_revealed_board[i][j])
   {
-    if (hidden_board[i][j] == -1)
+    if (game->hidden_board[i][j] == -1)
     {
       // אם הוא מוקש נסמנו בהתאם
       printw("*");
@@ -128,12 +98,12 @@ void PrintCellValue(int i, int j)
     else
     {
       // אם הוא לא מוקש נדפיס למשתמש/ת את ערכו
-      printw("%d", hidden_board[i][j]);
+      printw("%d", game->hidden_board[i][j]);
     }
   }
   else
   {
-    if (is_flagged_board[i][j])
+    if (game->is_flagged_board[i][j])
     {
       printw("f");
     }
@@ -147,45 +117,45 @@ void PrintCellValue(int i, int j)
   printw(" ");
 }
 
-void PrintHorizontalLine()
+void PrintHorizontalLine(struct Game *game)
 {
-  for (int j = 0; j < COLS; ++j)
+  for (int j = 0; j < game->config.cols; ++j)
   {
     printw("----");
   }
   printw("-\n");
 }
 
-void DrawBoard()
+void DrawBoard(struct Game *game)
 {
   clear(); // clear screen
 
   int num_flags = 0;
-  for (int i = 0; i < ROWS; ++i)
+  for (int i = 0; i < game->config.rows; ++i)
   {
-    for (int j = 0; j < ROWS; ++j)
+    for (int j = 0; j < game->config.cols; ++j)
     {
-      num_flags += is_flagged_board[i][j];
+      num_flags += game->is_flagged_board[i][j];
     }
   }
 
-  printw("Mine Sweeper, num mines: %d, num_flags: %d\n", NUM_MINES, num_flags);
+  printw("Mine Sweeper, rows: %d, cols: %d, mines: %d, flags: %d\n", game->config.rows, game->config.cols, game->config.mines, num_flags);
 
-  for (int i = 0; i < ROWS; ++i)
+  for (int i = 0; i < game->config.rows; ++i)
   {
-    PrintHorizontalLine();
+    PrintHorizontalLine(game);
 
-    for (int j = 0; j < COLS; ++j)
+    for (int j = 0; j < game->config.cols; ++j)
     {
       printw("|");
-      PrintCellValue(i, j);
+      PrintCellValue(game, i, j);
     }
     printw("|\n");
   }
-  PrintHorizontalLine();
+  PrintHorizontalLine(game);
 }
 
-void RevealZeroes(int row_ind, int col_ind)
+void RevealZeroes(struct Game *game)
 {
   LIST_HEAD(listhead, entry)
   head;
@@ -201,11 +171,11 @@ void RevealZeroes(int row_ind, int col_ind)
   LIST_INIT(&head); /* Initialize the list. */
 
   np = malloc(sizeof(struct entry)); /* Insert at the head. */
-  np->row_ind = row_ind;
-  np->col_ind = col_ind;
+  np->row_ind = game->pos.i;
+  np->col_ind = game->pos.j;
   LIST_INSERT_HEAD(&head, np, entries);
 
-  is_revealed_board[row_ind][col_ind] = true;
+  game->is_revealed_board[game->pos.i][game->pos.j] = true;
 
   while (head.lh_first != NULL)
   {
@@ -214,28 +184,30 @@ void RevealZeroes(int row_ind, int col_ind)
 
     printw("%d %d\n", curr_row_ind, curr_col_ind);
 
+    np = head.lh_first;
     LIST_REMOVE(head.lh_first, entries);
+    free(np);
 
     for (int k = 0; k < num_neighbours; ++k)
     {
       int neigh_row_ind = curr_row_ind + neighbours[k][0];
-      if (neigh_row_ind < 0 || neigh_row_ind >= ROWS)
+      if (neigh_row_ind < 0 || neigh_row_ind >= game->config.rows)
         continue;
 
       int neigh_col_ind = curr_col_ind + neighbours[k][1];
-      if (neigh_col_ind < 0 || neigh_col_ind >= COLS)
+      if (neigh_col_ind < 0 || neigh_col_ind >= game->config.cols)
         continue;
 
-      if (is_revealed_board[neigh_row_ind][neigh_col_ind])
+      if (game->is_revealed_board[neigh_row_ind][neigh_col_ind])
         continue;
 
-      is_revealed_board[neigh_row_ind][neigh_col_ind] = true;
+      game->is_revealed_board[neigh_row_ind][neigh_col_ind] = true;
 
-      DrawBoard();
+      DrawBoard(game);
       refresh();
-      // usleep(1000);
+      usleep(10000);
 
-      if (hidden_board[neigh_row_ind][neigh_col_ind] != 0)
+      if (game->hidden_board[neigh_row_ind][neigh_col_ind] != 0)
         continue;
 
       np = malloc(sizeof(struct entry)); /* Insert at the head. */
@@ -246,86 +218,121 @@ void RevealZeroes(int row_ind, int col_ind)
   }
 }
 
-bool RevealLocation()
+bool RevealLocation(struct Game *game)
 {
-  switch (hidden_board[pos.i][pos.j])
+  switch (game->hidden_board[game->pos.i][game->pos.j])
   {
   case 0:
-    RevealZeroes(pos.i, pos.j);
+    RevealZeroes(game);
     return true;
   case -1:
-    is_revealed_board[pos.i][pos.j] = true;
-    DrawBoard();
+    game->is_revealed_board[game->pos.i][game->pos.j] = true;
+    DrawBoard(game);
     printw("\n\nBOOOOOOOOOM!!!! GAME OVER!\n");
     refresh();
+    sleep(3);
     return false;
   default:
-    is_revealed_board[pos.i][pos.j] = true;
+    game->is_revealed_board[game->pos.i][game->pos.j] = true;
     return true;
   }
 }
 
-bool CheckWin()
+bool CheckWin(struct Game *game)
 {
-  int sum_unrevealed = NUM_CELLS;
-  for (int i = 0; i < ROWS; ++i)
+  int sum_unrevealed = game->config.rows * game->config.cols;
+  for (int i = 0; i < game->config.rows; ++i)
   {
-    for (int j = 0; j < COLS; ++j)
+    for (int j = 0; j < game->config.cols; ++j)
     {
-      sum_unrevealed -= is_revealed_board[i][j];
+      sum_unrevealed -= game->is_revealed_board[i][j];
     }
   }
 
-  if (sum_unrevealed > NUM_MINES)
+  if (sum_unrevealed > game->config.mines)
     return false;
 
   int sum_flags = 0;
-  for (int i = 0; i < ROWS; ++i)
+  for (int i = 0; i < game->config.rows; ++i)
   {
-    for (int j = 0; j < COLS; ++j)
+    for (int j = 0; j < game->config.cols; ++j)
     {
-      sum_flags += is_flagged_board[i][j];
+      sum_flags += game->is_flagged_board[i][j];
     }
   }
 
-  if (sum_flags != NUM_MINES)
+  if (sum_flags != game->config.mines)
     return false;
 
-  // memset(is_revealed_board, -1, sizeof(is_revealed_board));
-
-  DrawBoard();
+  for (int i = 0; i < game->config.rows; ++i)
+  {
+    for (int j = 0; j < game->config.cols; ++j)
+    {
+      game->is_revealed_board[i][j] = true;
+    }
+  }
+  DrawBoard(game);
 
   printw("\nYOU WON!!!\n");
   refresh();
 
+  sleep(3);
   return true;
 }
 
-void Init()
+void Init(struct Game *game)
 {
-  memset(is_flagged_board, 0, sizeof(is_flagged_board));
-  memset(is_revealed_board, 0, sizeof(is_revealed_board));
-  memset(hidden_board, 0, sizeof(hidden_board));
-  memset(&pos, 0, sizeof(pos));
+  game->hidden_board = (int8_t **)malloc(game->config.rows * sizeof(*game->hidden_board));
+  for (int i = 0; i < game->config.rows; ++i)
+    game->hidden_board[i] = (int8_t *)calloc(game->config.cols, 1);
 
-  PlaceMines();
+  game->is_flagged_board = (bool **)malloc(game->config.rows * sizeof(*game->is_flagged_board));
+  for (int i = 0; i < game->config.rows; ++i)
+    game->is_flagged_board[i] = (bool *)calloc(game->config.cols, 1);
+
+  game->is_revealed_board = (bool **)malloc(game->config.rows * sizeof(*game->is_revealed_board));
+  for (int i = 0; i < game->config.rows; ++i)
+    game->is_revealed_board[i] = (bool *)calloc(game->config.cols, 1);
+
+  game->revealed_board = (char *)malloc(game->config.rows * game->config.cols);
+
+  memset(&game->pos, 0, sizeof(game->pos));
+
+  PlaceMines(game);
 }
 
-void update_revealed_board(char *revealed_board)
+void DeInit(struct Game *game)
 {
-  char *ptr = revealed_board;
-  for (int i = 0; i < ROWS; ++i)
+  for (int i = 0; i < game->config.rows; ++i)
+    free(game->hidden_board[i]);
+  free(game->hidden_board);
+
+  for (int i = 0; i < game->config.rows; ++i)
+    free(game->is_flagged_board[i]);
+  free(game->is_flagged_board);
+
+  for (int i = 0; i < game->config.rows; ++i)
+    free(game->is_revealed_board[i]);
+  free(game->is_revealed_board);
+
+  free(game->revealed_board);
+}
+
+void update_revealed_board(struct Game *game)
+{
+  char *ptr = game->revealed_board;
+  for (int i = 0; i < game->config.rows; ++i)
   {
-    for (int j = 0; j < COLS; ++j)
+    for (int j = 0; j < game->config.cols; ++j)
     {
-      if (is_revealed_board[i][j])
+      if (game->is_revealed_board[i][j])
       {
-        if (hidden_board[i][j] == -1)
+        if (game->hidden_board[i][j] == -1)
           *ptr = '*';
         else
-          *ptr = '0' + hidden_board[i][j];
+          *ptr = '0' + game->hidden_board[i][j];
       }
-      else if (is_flagged_board[i][j])
+      else if (game->is_flagged_board[i][j])
       {
         *ptr = 'f';
       }
@@ -338,7 +345,7 @@ void update_revealed_board(char *revealed_board)
   }
 }
 
-void write_revealed_board(char *revealed_board, int sock)
+void write_revealed_board(struct Game *game, int sock)
 {
   // FILE *f = fopen("/tmp/game.txt", "a");
   // for (int i = 0; i < ROWS; ++i)
@@ -357,21 +364,24 @@ void write_revealed_board(char *revealed_board, int sock)
   // fprintf(f, "\n\n");
   // fclose(f);
 
-  char mem[NUM_CELLS + sizeof(pos)];
+  int num_cells = game->config.rows * game->config.cols;
+  int tot_size = num_cells + sizeof(game->pos);
+  char *mem = (char *)malloc(tot_size);
   char *ptr = mem;
-  memcpy(ptr, revealed_board, NUM_CELLS);
-  ptr += NUM_CELLS;
-  memcpy(ptr, &pos, sizeof(pos));
+  memcpy(ptr, game->revealed_board, num_cells);
+  ptr += num_cells;
+  memcpy(ptr, &game->pos, sizeof(game->pos));
 
-  send_message(sock, 0, mem);
+  send_message(sock, 0, mem, tot_size);
+
+  free(mem);
 }
 
-int run_one_game(int sock) {
-  char revealed_board[NUM_CELLS];
-
-  Init();
-  update_revealed_board(revealed_board);
-  write_revealed_board(revealed_board, sock);
+int run_one_game(int sock, struct Game *game)
+{
+  Init(game);
+  update_revealed_board(game);
+  write_revealed_board(game, sock);
 
   bool should_exit = false;
 
@@ -379,7 +389,7 @@ int run_one_game(int sock) {
 
   for (;;)
   {
-    DrawBoard();
+    DrawBoard(game);
 
     // נבקש קלט מהמשתמש/ת
     addstr("\nquit anytime with \"q\"\n\n");
@@ -405,32 +415,32 @@ int run_one_game(int sock) {
       should_exit = true;
       break;
     case 'w': // up
-      curr = pos.i - 1;
+      curr = game->pos.i - 1;
       if (curr >= 0)
-        pos.i = curr;
+        game->pos.i = curr;
       break;
     case 'x': // down
-      curr = pos.i + 1;
-      if (curr < ROWS)
-        pos.i = curr;
+      curr = game->pos.i + 1;
+      if (curr < game->config.rows)
+        game->pos.i = curr;
       break;
     case 'a': // left
-      curr = pos.j - 1;
+      curr = game->pos.j - 1;
       if (curr >= 0)
-        pos.j = curr;
+        game->pos.j = curr;
       break;
     case 'd': // right
-      curr = pos.j + 1;
-      if (curr < COLS)
-        pos.j = curr;
+      curr = game->pos.j + 1;
+      if (curr < game->config.cols)
+        game->pos.j = curr;
       break;
     case ' ':
       // אם המיקום המבוקש הוא מוקש נסיים את המשחק ואם לא אז נחשוף תא אחד או יותר
-      lose = !RevealLocation();
+      lose = !RevealLocation(game);
       board_changed = true;
       break;
     case 'f':
-      is_flagged_board[pos.i][pos.j] = !is_flagged_board[pos.i][pos.j];
+      game->is_flagged_board[game->pos.i][game->pos.j] = !game->is_flagged_board[game->pos.i][game->pos.j];
       board_changed = true;
       break;
     }
@@ -439,26 +449,29 @@ int run_one_game(int sock) {
       break;
 
     // נבדוק האם המשתמש/ת ניצח, כלומר סיימ/ה לחשוף את כל התאים שאינם מוקשים
-    win = CheckWin();
+    win = CheckWin(game);
     if (lose || win)
     {
       // FILE *f = fopen("/tmp/game.txt", "a");
       // fprintf(f, "win %d\n", win);
       // fclose(f);
-      send_message(sock, 2, &win);
+      send_message(sock, 2, &win, -1);
 
       // usleep(100000);
       break;
     }
 
-    update_revealed_board(revealed_board);
+    update_revealed_board(game);
     if (board_changed)
     {
-      write_revealed_board(revealed_board, sock);
+      write_revealed_board(game, sock);
     }
   }
 
-  if (should_exit) return -1;
+  DeInit(game);
+
+  if (should_exit)
+    return -1;
 
   return win;
 }
@@ -468,6 +481,8 @@ void run_game(int sock)
   // struct all_fds all_fds = *(struct all_fds *)arguments;
 
   int ch;
+
+  setlocale(LC_ALL, "");
 
   /* Curses Initialisations */
   initscr();
@@ -481,12 +496,23 @@ void run_game(int sock)
 
   // srand(time(NULL));
 
-  // צ׳יט שחושף את כל הלוח
-  // memset(is_revealed_board, -1, sizeof(is_revealed_board));
+  struct Game game;
+  for (;;)
+  {
+    int msg_type;
+    if (!get_message(sock, &msg_type, &game.config))
+    {
+      usleep(10);
+      continue;
+    }
 
-  for (;;) {
-    int ret = run_one_game(sock);
-    if (ret < 0) break;
+    // FILE *f = fopen("/tmp/game.txt", "a");
+    // fprintf(f, "game.config %d %d %d\n", game.config.rows, game.config.cols, game.config.mines);
+    // fclose(f);
+
+    int ret = run_one_game(sock, &game);
+    if (ret < 0)
+      break;
   }
 
   endwin();

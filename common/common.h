@@ -6,11 +6,6 @@
 
 #define PORT 1212
 
-#define ROWS 10
-#define COLS 10
-
-#define NUM_CELLS (ROWS * COLS)
-
 static int8_t neighbours[][2] = {
     {-1, -1}, // למעלה משמאל
     {-1, 0},  // למעלה
@@ -37,10 +32,18 @@ struct message {
   int len;
 };
 
+struct GameConfig
+{
+  int rows;
+  int cols;
+  int mines;
+};
+
 struct message messages[] = {
-  {0, ROWS * COLS + 2 * sizeof(int)}, // board + pos
+  {0, -1}, // board + pos
   {1, 1}, // key
-  {2, 1} // win/loose
+  {2, 1}, // win/loose
+  {3, sizeof(struct GameConfig)} // win/loose
 };
 
 struct Position
@@ -61,10 +64,10 @@ bool get_message(int sock, int *type, void *data) {
   // if (msg.type != wanted_type) return false;
 
   num_read = read(sock, &msg.len, sizeof(msg.len));
-  if (num_read != sizeof(msg.type)) return false;
+  if (num_read != sizeof(msg.len)) return false;
 
   struct message curr = messages[msg.type];
-  if (msg.len != curr.len) return false;
+  if (curr.len != -1 && msg.len != curr.len) return false;
 
   num_read = read(sock, data, msg.len);
   if (num_read != msg.len) return false;
@@ -72,8 +75,9 @@ bool get_message(int sock, int *type, void *data) {
   return true;
 }
 
-void send_message(int sock, int wanted_type, void *data) {
+void send_message(int sock, int wanted_type, void *data, int len) {
   struct message curr = messages[wanted_type];
+  if (curr.len == -1) curr.len = len;
   int tot_size = sizeof(curr) + curr.len;
 
   char *mem = (char *)malloc(tot_size);
