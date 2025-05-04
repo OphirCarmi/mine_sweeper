@@ -6,6 +6,8 @@
 
 #define PORT 1212
 
+// #define SHOW
+
 static int8_t neighbours[][2] = {
     {-1, -1}, // למעלה משמאל
     {-1, 0},  // למעלה

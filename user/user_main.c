@@ -20,26 +20,34 @@ void MoveByDiff(int sock, int diff_i, int diff_j)
   {
     char c = 'x';
     send_message(sock, 1, &c, -1);
+#ifdef SHOW
     usleep(100000);
+#endif // SHOW
   }
   for (int m = 0; m < -diff_i; ++m)
   {
     char c = 'w';
     send_message(sock, 1, &c, -1);
+#ifdef SHOW
     usleep(100000);
+#endif // SHOW
   }
 
   for (int m = 0; m < diff_j; ++m)
   {
     char c = 'd';
     send_message(sock, 1, &c, -1);
+#ifdef SHOW
     usleep(100000);
+#endif // SHOW
   }
   for (int m = 0; m < -diff_j; ++m)
   {
     char c = 'a';
     send_message(sock, 1, &c, -1);
+#ifdef SHOW
     usleep(100000);
+#endif // SHOW
   }
 }
 
@@ -387,8 +395,8 @@ void run_one_game(int sock, struct User *user)
 
     if (end_game)
     {
-      FILE *f = fopen("/Users/user/work/tutorials/mine_sweeper/user.txt", "a");
-      fprintf(f, "end_game %d\n", end_game);
+      FILE *f = fopen("/Users/user/work/tutorials/mine_sweeper/user.csv", "a");
+      fprintf(f, "end_game,%d,rows,%d,cols,%d,mines,%d\n", end_game, user->config.rows, user->config.cols, user->config.mines);
       fclose(f);
       break;
     }
@@ -431,7 +439,7 @@ void run_one_game(int sock, struct User *user)
 void run_user(int sock)
 {
   struct User user;
-  for (int i = 0; i < 1000; ++i)
+  for (int i = 0; i < 10000; ++i)
   {
     user.config.rows = rand() % 10 + 8;
     user.config.cols = rand() % 10 + 8;

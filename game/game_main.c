@@ -203,9 +203,11 @@ void RevealZeroes(struct Game *game)
 
       game->is_revealed_board[neigh_row_ind][neigh_col_ind] = true;
 
+#ifdef SHOW
       DrawBoard(game);
       refresh();
-      usleep(10000);
+      usleep(50000);
+#endif // SHOW
 
       if (game->hidden_board[neigh_row_ind][neigh_col_ind] != 0)
         continue;
@@ -227,10 +229,12 @@ bool RevealLocation(struct Game *game)
     return true;
   case -1:
     game->is_revealed_board[game->pos.i][game->pos.j] = true;
+#ifdef SHOW
     DrawBoard(game);
     printw("\n\nBOOOOOOOOOM!!!! GAME OVER!\n");
     refresh();
     sleep(3);
+#endif // SHOW
     return false;
   default:
     game->is_revealed_board[game->pos.i][game->pos.j] = true;
@@ -271,12 +275,14 @@ bool CheckWin(struct Game *game)
       game->is_revealed_board[i][j] = true;
     }
   }
+#ifdef SHOW
   DrawBoard(game);
 
   printw("\nYOU WON!!!\n");
   refresh();
 
   sleep(3);
+#endif // SHOW
   return true;
 }
 
@@ -389,6 +395,7 @@ int run_one_game(int sock, struct Game *game)
 
   for (;;)
   {
+#ifdef SHOW
     DrawBoard(game);
 
     // נבקש קלט מהמשתמש/ת
@@ -397,6 +404,7 @@ int run_one_game(int sock, struct Game *game)
     printw("use space bar to reveal\n");
     printw("use `f` to flag an existing mine\n");
     refresh();
+#endif // SHOW
 
     char c;
     int msg_type;
@@ -497,14 +505,20 @@ void run_game(int sock)
   // srand(time(NULL));
 
   struct Game game;
+
+  char msg[sizeof(game.config)];
   for (;;)
   {
     int msg_type;
-    if (!get_message(sock, &msg_type, &game.config))
+    if (!get_message(sock, &msg_type, msg))
     {
       usleep(10);
       continue;
     }
+
+    if (msg_type == 1 && msg[0] == 'q') break;
+
+    memcpy(&game.config, msg, sizeof(game.config));
 
     // FILE *f = fopen("/tmp/game.txt", "a");
     // fprintf(f, "game.config %d %d %d\n", game.config.rows, game.config.cols, game.config.mines);
