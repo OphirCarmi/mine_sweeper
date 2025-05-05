@@ -34,7 +34,8 @@ void PlaceMines(struct Game *game)
   int *ptr = indices;
   for (int i = 0; i < num_cells; ++i)
   {
-    if (i / game->config.cols == game->pos.i && i % game->config.cols == game->pos.j) continue;
+    if (i / game->config.cols == game->pos.i && i % game->config.cols == game->pos.j)
+      continue;
     *ptr = i;
     ++ptr;
   }
@@ -402,8 +403,8 @@ int run_one_game(int sock, struct Game *game)
     DrawBoard(game);
 
     // נבקש קלט מהמשתמש/ת
-    addstr("\nquit anytime with \"q\"\n\n");
-    printw("use arrows to move\n");
+    printw("\nquit anytime with \"q\"\n\n");
+    printw("use 'w'=up, 'd'=right, 'x'=down, 'a'=left to move\n");
     printw("use space bar to reveal\n");
     printw("use `f` to flag an existing mine\n");
     refresh();
@@ -411,10 +412,17 @@ int run_one_game(int sock, struct Game *game)
 
     char c;
     int msg_type;
-    if (!get_message(sock, &msg_type, &c))
+    if (sock >= 0)
     {
-      usleep(10);
-      continue;
+      if (!get_message(sock, &msg_type, &c))
+      {
+        usleep(10);
+        continue;
+      }
+    }
+    else
+    {
+      c = getch();
     }
 
     bool lose = false;
@@ -446,7 +454,8 @@ int run_one_game(int sock, struct Game *game)
         game->pos.j = curr;
       break;
     case ' ':
-      if (first_move) {
+      if (first_move)
+      {
         PlaceMines(game);
         first_move = false;
       }
@@ -490,6 +499,73 @@ int run_one_game(int sock, struct Game *game)
   return win;
 }
 
+bool GetConfigFromSock(struct Game *game, int sock, bool *should_continue)
+{
+  char msg[sizeof(game->config)];
+  int msg_type;
+  if (!get_message(sock, &msg_type, msg))
+  {
+    usleep(10);
+    *should_continue = true;
+    return false;
+  }
+
+  if (msg_type == 1 && msg[0] == 'q')
+    return true;
+
+  memcpy(&game->config, msg, sizeof(game->config));
+
+  return false;
+}
+
+bool GetConfigFromUser(struct Game *game)
+{
+  printw("enter level (1/2/3/4)\n1: Easy\n2: Intermediate\n3: Hard\n4: Custom\n");
+  bool should_exit = false;
+  while (true)
+  {
+    int key = getch();
+    bool should_continue = false;
+    switch (key)
+    {
+    case '1':
+      game->config.rows = 9;
+      game->config.cols = 9;
+      game->config.mines = 10;
+      break;
+    case '2':
+      game->config.rows = 16;
+      game->config.cols = 16;
+      game->config.mines = 40;
+      break;
+    case '3':
+      game->config.rows = 16;
+      game->config.cols = 30;
+      game->config.mines = 99;
+      break;
+    case '4':
+      printw("enter num rows: ");
+      scanw("%d", &game->config.rows);
+      printw("enter num cols: ");
+      scanw("%d", &game->config.cols);
+      printw("enter num mines: ");
+      scanw("%d", &game->config.mines);
+      break;
+    case 'q':
+      should_exit = true;
+    break;
+    default:
+      should_continue = true;
+      break;
+    }
+    refresh();
+    if (!should_continue)
+      break;
+  }
+
+  return should_exit;
+}
+
 void run_game(int sock)
 {
   // struct all_fds all_fds = *(struct all_fds *)arguments;
@@ -506,25 +582,26 @@ void run_game(int sock)
   init_pair(2, -1, -1);
   raw();
   keypad(stdscr, TRUE);
-  noecho();
 
   // srand(time(NULL));
 
   struct Game game;
 
-  char msg[sizeof(game.config)];
   for (;;)
   {
-    int msg_type;
-    if (!get_message(sock, &msg_type, msg))
+    if (sock >= 0)
     {
-      usleep(10);
-      continue;
+      bool should_continue = false;
+      if (GetConfigFromSock(&game, sock, &should_continue))
+        break;
+      if (should_continue)
+        continue;
     }
-
-    if (msg_type == 1 && msg[0] == 'q') break;
-
-    memcpy(&game.config, msg, sizeof(game.config));
+    else
+    {
+      if (GetConfigFromUser(&game)) break;
+      noecho();
+    }
 
     // FILE *f = fopen("/tmp/game.txt", "a");
     // fprintf(f, "game.config %d %d %d\n", game.config.rows, game.config.cols, game.config.mines);
@@ -538,23 +615,22 @@ void run_game(int sock)
   endwin();
 }
 
-int main()
+void CreateSocket(int *server_fd, int *new_socket)
 {
-  int server_fd, new_socket;
   struct sockaddr_in address;
   int opt = 1;
   int addrlen = sizeof(address);
   char buffer[BUFFER_SIZE] = {0};
 
   // Creating socket file descriptor
-  if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
+  if ((*server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
   {
     perror("socket failed");
     exit(EXIT_FAILURE);
   }
 
   // Attaching socket to the port
-  if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
+  if (setsockopt(*server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)))
   {
     perror("setsockopt");
     exit(EXIT_FAILURE);
@@ -565,14 +641,14 @@ int main()
   address.sin_port = htons(PORT);
 
   // Binding the socket to the address
-  if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
+  if (bind(*server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
   {
     perror("bind failed");
     exit(EXIT_FAILURE);
   }
 
   // Listening for incoming connections
-  if (listen(server_fd, 3) < 0)
+  if (listen(*server_fd, 3) < 0)
   {
     perror("listen");
     exit(EXIT_FAILURE);
@@ -580,17 +656,31 @@ int main()
 
   printf("Waiting for connections...\n");
 
-  if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0)
+  if ((*new_socket = accept(*server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0)
   {
     perror("accept");
     exit(EXIT_FAILURE);
   }
+}
+
+int main(int argc, char *argv[])
+{
+  bool should_create_socket = argc > 1 && !strcmp(argv[1], "socket");
+
+  int server_fd, new_socket = -1;
+  if (should_create_socket)
+  {
+    CreateSocket(&server_fd, &new_socket);
+  }
 
   run_game(new_socket);
 
-  // Close the socket
-  close(new_socket);
-  close(server_fd);
+  if (should_create_socket)
+  {
+    // Close the socket
+    close(new_socket);
+    close(server_fd);
+  }
 
   return 0;
 }
