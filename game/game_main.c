@@ -79,9 +79,7 @@ void PlaceMines(struct Game *game)
   free(indices);
 }
 
-void PrintCellValue(struct Game *game, int i, int j, bool red)
-{
-  printw(" ");
+void SetColor(struct Game *game, int i, int j, bool red) {
   if (game->pos.i == i && game->pos.j == j)
   {
     if (red)
@@ -93,6 +91,13 @@ void PrintCellValue(struct Game *game, int i, int j, bool red)
   {
     attrset(COLOR_PAIR(2));
   }
+}
+
+void PrintCellValue(struct Game *game, int i, int j, bool red, bool board_changed)
+{
+  if (board_changed) SetColor(game, i, j, red);
+  printw(" ");
+  SetColor(game, i, j, red);
 
   // נבדוק שהתא הזה כבר חשוף למשתמש
   if (game->is_revealed_board[i][j])
@@ -121,7 +126,9 @@ void PrintCellValue(struct Game *game, int i, int j, bool red)
     }
   }
   attroff(COLOR_PAIR(1));
+  if (board_changed) SetColor(game, i, j, red);
   printw(" ");
+  attroff(COLOR_PAIR(1));
 }
 
 void PrintHorizontalLine(struct Game *game)
@@ -133,7 +140,7 @@ void PrintHorizontalLine(struct Game *game)
   printw("-\n");
 }
 
-void DrawBoard(struct Game *game, bool red)
+void DrawBoard(struct Game *game, bool red, bool board_changed)
 {
   clear(); // clear screen
 
@@ -155,7 +162,7 @@ void DrawBoard(struct Game *game, bool red)
     for (int j = 0; j < game->config.cols; ++j)
     {
       printw("|");
-      PrintCellValue(game, i, j, red);
+      PrintCellValue(game, i, j, red, board_changed);
     }
     printw("|\n");
   }
@@ -211,7 +218,7 @@ void RevealZeroes(struct Game *game)
       game->is_revealed_board[neigh_row_ind][neigh_col_ind] = true;
 
 #ifdef SHOW
-      DrawBoard(game, false);
+      DrawBoard(game, false, false);
       refresh();
       usleep(50000);
 #endif // SHOW
@@ -237,7 +244,7 @@ bool RevealLocation(struct Game *game)
   case -1:
     game->is_revealed_board[game->pos.i][game->pos.j] = true;
 #ifdef SHOW
-    DrawBoard(game, true);
+    DrawBoard(game, true, true);
     printw("\n\nBOOOOOOOOOM!!!! GAME OVER!\n");
     refresh();
     sleep(3);
@@ -283,7 +290,7 @@ bool CheckWin(struct Game *game)
     }
   }
 #ifdef SHOW
-  DrawBoard(game, false);
+  DrawBoard(game, false, false);
 
   printw("\nYOU WON!!!\n");
   refresh();
@@ -400,10 +407,12 @@ int run_one_game(int sock, struct Game *game)
 
   bool first_move = true;
 
+  bool board_changed = false;
+
   for (;;)
   {
 #ifdef SHOW
-    DrawBoard(game, false);
+    DrawBoard(game, false, board_changed);
 
     // נבקש קלט מהמשתמש/ת
     printw("\nquit anytime with \"q\"\n\n");
@@ -428,8 +437,8 @@ int run_one_game(int sock, struct Game *game)
       c = getch();
     }
 
+    board_changed = false;
     bool lose = false;
-    bool board_changed = false;
     int curr;
     switch (c)
     {

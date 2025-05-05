@@ -126,7 +126,9 @@ bool CheckForObviousMines(const struct User *user, int sock)
 
             char c = ' ';
             send_message(sock, 1, &c, -1);
-            // usleep(10000);
+#ifdef SHOW
+            usleep(100000);
+#endif  // SHOW
             return true;
           }
         }
@@ -192,7 +194,9 @@ bool CheckForObviousMines(const struct User *user, int sock)
 
           char c = 'f';
           send_message(sock, 1, &c, -1);
-          // usleep(10000);
+#ifdef SHOW
+          usleep(100000);
+#endif // SHOW
 
           return true;
         }
