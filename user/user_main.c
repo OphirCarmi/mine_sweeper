@@ -436,18 +436,13 @@ void run_one_game(int sock, struct User *user)
   free(user->revealed_board);
 }
 
-void run_user(int sock)
+void run_user(int sock, struct User *user)
 {
-  struct User user;
   for (int i = 0; i < 10000; ++i)
   {
-    user.config.rows = rand() % 10 + 8;
-    user.config.cols = rand() % 10 + 8;
-    user.config.mines = user.config.rows * user.config.cols / 6;
+    send_message(sock, 3, &user->config, -1);
 
-    send_message(sock, 3, &user.config, -1);
-
-    run_one_game(sock, &user);
+    run_one_game(sock, user);
   }
 
   char c = 'q';
@@ -455,8 +450,28 @@ void run_user(int sock)
   // usleep(10000);
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+  struct User user;
+
+  switch (argv[1][0]) {
+    case '1':
+      user.config.rows = 9;
+      user.config.cols = 9;
+      user.config.mines = 10;
+      break;
+    case '2':
+      user.config.rows = 16;
+      user.config.cols = 16;
+      user.config.mines = 40;
+      break;
+    case '3':
+      user.config.rows = 16;
+      user.config.cols = 30;
+      user.config.mines = 99;
+      break;
+  }
+
   int sock = 0;
   struct sockaddr_in serv_addr;
 
@@ -484,7 +499,7 @@ int main()
     return -1;
   }
 
-  run_user(sock);
+  run_user(sock, &user);
 
   // Close the socket
   close(sock);

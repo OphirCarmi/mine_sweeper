@@ -79,12 +79,15 @@ void PlaceMines(struct Game *game)
   free(indices);
 }
 
-void PrintCellValue(struct Game *game, int i, int j)
+void PrintCellValue(struct Game *game, int i, int j, bool red)
 {
   printw(" ");
   if (game->pos.i == i && game->pos.j == j)
   {
-    attrset(COLOR_PAIR(1));
+    if (red)
+      attrset(COLOR_PAIR(3));
+    else
+      attrset(COLOR_PAIR(1));
   }
   else
   {
@@ -130,7 +133,7 @@ void PrintHorizontalLine(struct Game *game)
   printw("-\n");
 }
 
-void DrawBoard(struct Game *game)
+void DrawBoard(struct Game *game, bool red)
 {
   clear(); // clear screen
 
@@ -152,7 +155,7 @@ void DrawBoard(struct Game *game)
     for (int j = 0; j < game->config.cols; ++j)
     {
       printw("|");
-      PrintCellValue(game, i, j);
+      PrintCellValue(game, i, j, red);
     }
     printw("|\n");
   }
@@ -208,7 +211,7 @@ void RevealZeroes(struct Game *game)
       game->is_revealed_board[neigh_row_ind][neigh_col_ind] = true;
 
 #ifdef SHOW
-      DrawBoard(game);
+      DrawBoard(game, false);
       refresh();
       usleep(50000);
 #endif // SHOW
@@ -234,7 +237,7 @@ bool RevealLocation(struct Game *game)
   case -1:
     game->is_revealed_board[game->pos.i][game->pos.j] = true;
 #ifdef SHOW
-    DrawBoard(game);
+    DrawBoard(game, true);
     printw("\n\nBOOOOOOOOOM!!!! GAME OVER!\n");
     refresh();
     sleep(3);
@@ -280,7 +283,7 @@ bool CheckWin(struct Game *game)
     }
   }
 #ifdef SHOW
-  DrawBoard(game);
+  DrawBoard(game, false);
 
   printw("\nYOU WON!!!\n");
   refresh();
@@ -400,7 +403,7 @@ int run_one_game(int sock, struct Game *game)
   for (;;)
   {
 #ifdef SHOW
-    DrawBoard(game);
+    DrawBoard(game, false);
 
     // נבקש קלט מהמשתמש/ת
     printw("\nquit anytime with \"q\"\n\n");
@@ -553,7 +556,7 @@ bool GetConfigFromUser(struct Game *game)
       break;
     case 'q':
       should_exit = true;
-    break;
+      break;
     default:
       should_continue = true;
       break;
@@ -580,6 +583,7 @@ void run_game(int sock)
   start_color();
   init_pair(1, -1, COLOR_GREEN);
   init_pair(2, -1, -1);
+  init_pair(3, -1, COLOR_RED);
   raw();
   keypad(stdscr, TRUE);
 
@@ -599,7 +603,8 @@ void run_game(int sock)
     }
     else
     {
-      if (GetConfigFromUser(&game)) break;
+      if (GetConfigFromUser(&game))
+        break;
       noecho();
     }
 
