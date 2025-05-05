@@ -30,14 +30,17 @@ struct Game
 void PlaceMines(struct Game *game)
 {
   int num_cells = game->config.rows * game->config.cols;
-  int *indices = (int *)malloc(sizeof(*indices) * num_cells);
+  int *indices = (int *)malloc(sizeof(*indices) * (num_cells - 1));
+  int *ptr = indices;
   for (int i = 0; i < num_cells; ++i)
   {
-    indices[i] = i;
+    if (i / game->config.cols == game->pos.i && i % game->config.cols == game->pos.j) continue;
+    *ptr = i;
+    ++ptr;
   }
   for (int i = 0; i < game->config.mines; ++i)
   {
-    int ind = i + rand() % (num_cells - i);
+    int ind = i + rand() % (num_cells - 1 - i);
     int temp = indices[ind];
     indices[ind] = indices[i];
     indices[i] = temp;
@@ -303,8 +306,6 @@ void Init(struct Game *game)
   game->revealed_board = (char *)malloc(game->config.rows * game->config.cols);
 
   memset(&game->pos, 0, sizeof(game->pos));
-
-  PlaceMines(game);
 }
 
 void DeInit(struct Game *game)
@@ -393,6 +394,8 @@ int run_one_game(int sock, struct Game *game)
 
   bool win = false;
 
+  bool first_move = true;
+
   for (;;)
   {
 #ifdef SHOW
@@ -443,7 +446,10 @@ int run_one_game(int sock, struct Game *game)
         game->pos.j = curr;
       break;
     case ' ':
-      // אם המיקום המבוקש הוא מוקש נסיים את המשחק ואם לא אז נחשוף תא אחד או יותר
+      if (first_move) {
+        PlaceMines(game);
+        first_move = false;
+      }
       lose = !RevealLocation(game);
       board_changed = true;
       break;
