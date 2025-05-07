@@ -184,7 +184,7 @@ void RevealZeroes(struct Game *game)
 
   LIST_INIT(&head); /* Initialize the list. */
 
-  np = malloc(sizeof(struct entry)); /* Insert at the head. */
+  np = (struct entry *)malloc(sizeof(struct entry)); /* Insert at the head. */
   np->row_ind = game->pos.i;
   np->col_ind = game->pos.j;
   LIST_INSERT_HEAD(&head, np, entries);
@@ -226,7 +226,7 @@ void RevealZeroes(struct Game *game)
       if (game->hidden_board[neigh_row_ind][neigh_col_ind] != 0)
         continue;
 
-      np = malloc(sizeof(struct entry)); /* Insert at the head. */
+      np = (struct entry*)malloc(sizeof(struct entry)); /* Insert at the head. */
       np->row_ind = neigh_row_ind;
       np->col_ind = neigh_col_ind;
       LIST_INSERT_HEAD(&head, np, entries);
