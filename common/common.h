@@ -6,7 +6,7 @@
 
 #define PORT 1212
 
-#define SHOW
+// #define SHOW
 
 static int8_t neighbours[][2] = {
     {-1, -1}, // למעלה משמאל
@@ -30,14 +30,14 @@ static int8_t neighbours[][2] = {
 static int8_t num_neighbours = sizeof(neighbours) / sizeof(neighbours[0]);
 
 struct message {
-  int type;
+  int8_t type;
   int len;
 };
 
 struct GameConfig
 {
-  int rows;
-  int cols;
+  int8_t rows;
+  int8_t cols;
   int mines;
 };
 
@@ -50,16 +50,21 @@ struct message messages[] = {
 
 struct Position
 {
-  int i;
-  int j;
+  int8_t i;
+  int8_t j;
 };
 
-bool get_message(int sock, int *type, void *data) {
+struct Cell {
+  struct Position pos;
+  char val;
+};
+
+bool get_message(int sock, int8_t *type, void *data, int *len) {
   struct message msg;
   int num_read = read(sock, &msg.type, sizeof(msg.type));
-  // FILE *f = fopen("/tmp/common.txt", "a");
-  // fprintf(f, "1 num_read %d\n", num_read);
-  // fclose(f);
+  FILE *f = fopen("/tmp/common.txt", "a");
+  fprintf(f, "1 num_read %d\n", num_read);
+  fclose(f);
   if (num_read != sizeof(msg.type)) return false;
 
   *type = msg.type;
@@ -74,10 +79,12 @@ bool get_message(int sock, int *type, void *data) {
   num_read = read(sock, data, msg.len);
   if (num_read != msg.len) return false;
 
+  if (len) *len = num_read;
+
   return true;
 }
 
-void send_message(int sock, int wanted_type, void *data, int len) {
+void send_message(int sock, int8_t wanted_type, void *data, int len) {
   struct message curr = messages[wanted_type];
   if (curr.len == -1) curr.len = len;
   int tot_size = sizeof(curr) + curr.len;

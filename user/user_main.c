@@ -128,7 +128,7 @@ bool CheckForObviousMines(const struct User *user, int sock)
             send_message(sock, 1, &c, -1);
 #ifdef SHOW
             usleep(100000);
-#endif  // SHOW
+#endif // SHOW
             return true;
           }
         }
@@ -218,8 +218,8 @@ bool CheckForAllMines(const struct User *user, int sock)
         continue;
 
       // 'X' is out of board or number
-      char *expected[4] = {"XXX11   ", "   11XXX", " 1X X 1X", "X1 X X1 "};//, "XXX12   ", "XXX21   ", "   12XXX", "   21XXX", " 1X X 2X", " 2X X 1X", "X2 X X1 ", "X1 X X2 "};
-      int flag_positions[4] = {5, 0, 0, 2};//, 6, 5, 1, 0, 3, 0, 2, 4};
+      char *expected[4] = {"XXX11   ", "   11XXX", " 1X X 1X", "X1 X X1 "}; //, "XXX12   ", "XXX21   ", "   12XXX", "   21XXX", " 1X X 2X", " 2X X 1X", "X2 X X1 ", "X1 X X2 "};
+      int flag_positions[4] = {5, 0, 0, 2};                                 //, 6, 5, 1, 0, 3, 0, 2, 4};
 
       for (int p = 0; p < 4; ++p)
       {
@@ -243,8 +243,8 @@ bool CheckForAllMines(const struct User *user, int sock)
           case ' ':
           // FALLTHROUGH
           case '1':
-          // // FALLTHROUGH
-          // case '2':
+            // // FALLTHROUGH
+            // case '2':
             if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
             {
               ok = false;
@@ -366,18 +366,36 @@ enum EndGame
   Win
 };
 
+void parse_board_message(char *msg, int len, struct User *user) {
+  int num_cells = (len - sizeof(struct Position)) / sizeof(struct Cell);
+  printf("num_cells %d\n", num_cells);
+  char *ptr = msg;
+  struct Cell cell;
+  for (int i = 0; i < num_cells; ++i) {
+    cell.pos.i = *ptr++;
+    cell.pos.j = *ptr++;
+    cell.val = *ptr++;
+    user->revealed_board[cell.pos.i * user->config.cols + cell.pos.j] = cell.val;
+  }
+
+  memcpy(&user->pos, ptr, sizeof(user->pos));
+}
+
 void run_one_game(int sock, struct User *user)
 {
   int num_cells = user->config.rows * user->config.cols;
 
   user->revealed_board = (char *)malloc(num_cells);
+  for (int i = 0; i < num_cells; ++i)
+    user->revealed_board[i] = ' ';
 
-  char *msg = (char *)malloc(num_cells + sizeof(user->pos));
+  char *msg = (char *)malloc(num_cells * sizeof(struct Cell) + sizeof(user->pos));
 
   for (;;)
   {
-    int msg_type;
-    if (!get_message(sock, &msg_type, msg))
+    int8_t msg_type;
+    int len;
+    if (!get_message(sock, &msg_type, msg, &len))
     {
       usleep(10);
       continue;
@@ -388,9 +406,8 @@ void run_one_game(int sock, struct User *user)
     switch (msg_type)
     {
     case 0:
-      memcpy(user->revealed_board, ptr, num_cells);
-      ptr += num_cells;
-      memcpy(&user->pos, ptr, sizeof(user->pos));
+      printf("111\n");
+      parse_board_message(msg, len, user);
       break;
     case 2:
       end_game = msg[0] ? Win : Lose;
@@ -458,22 +475,23 @@ int main(int argc, char *argv[])
 {
   struct User user;
 
-  switch (argv[1][0]) {
-    case '1':
-      user.config.rows = 9;
-      user.config.cols = 9;
-      user.config.mines = 10;
-      break;
-    case '2':
-      user.config.rows = 16;
-      user.config.cols = 16;
-      user.config.mines = 40;
-      break;
-    case '3':
-      user.config.rows = 16;
-      user.config.cols = 30;
-      user.config.mines = 99;
-      break;
+  switch (argv[1][0])
+  {
+  case '1':
+    user.config.rows = 9;
+    user.config.cols = 9;
+    user.config.mines = 10;
+    break;
+  case '2':
+    user.config.rows = 16;
+    user.config.cols = 16;
+    user.config.mines = 40;
+    break;
+  case '3':
+    user.config.rows = 16;
+    user.config.cols = 30;
+    user.config.mines = 99;
+    break;
   }
 
   int sock = 0;

@@ -21,6 +21,7 @@ struct Game
   bool **is_flagged_board;
 
   char *revealed_board;
+  char *last_revealed_board;
 
   struct Position pos;
 
@@ -314,7 +315,13 @@ void Init(struct Game *game)
   for (int i = 0; i < game->config.rows; ++i)
     game->is_revealed_board[i] = (bool *)calloc(game->config.cols, 1);
 
-  game->revealed_board = (char *)malloc(game->config.rows * game->config.cols);
+  int num_cells = game->config.rows * game->config.cols;
+  game->revealed_board = (char *)malloc(num_cells);
+  game->last_revealed_board = (char *)malloc(num_cells);
+  for (int i = 0; i < num_cells; ++i) {
+    game->revealed_board[i] = ' ';
+    game->last_revealed_board[i] = ' ';
+  }
 
   memset(&game->pos, 0, sizeof(game->pos));
 }
@@ -334,6 +341,7 @@ void DeInit(struct Game *game)
   free(game->is_revealed_board);
 
   free(game->revealed_board);
+  free(game->last_revealed_board);
 }
 
 void update_revealed_board(struct Game *game)
@@ -383,16 +391,32 @@ void write_revealed_board(struct Game *game, int sock)
   // fclose(f);
 
   int num_cells = game->config.rows * game->config.cols;
-  int tot_size = num_cells + sizeof(game->pos);
+  int num_changed = 0;
+  for (int i = 0; i < num_cells; ++i)
+    if (game->revealed_board[i] != game->last_revealed_board[i])
+      num_changed++;
+
+  int tot_size = num_changed * sizeof(struct Cell) + sizeof(game->pos);
   char *mem = (char *)malloc(tot_size);
   char *ptr = mem;
-  memcpy(ptr, game->revealed_board, num_cells);
-  ptr += num_cells;
+  struct Cell cell;
+  for (int i = 0; i < num_cells; ++i) {
+    char curr = game->revealed_board[i];
+    if (curr != game->last_revealed_board[i]) {
+      cell.pos.i = i / game->config.cols;
+      cell.pos.j = i % game->config.cols;
+      cell.val = curr;
+      memcpy(ptr, &cell, sizeof(cell));
+      ptr += sizeof(cell);
+    }
+  }
   memcpy(ptr, &game->pos, sizeof(game->pos));
 
   send_message(sock, 0, mem, tot_size);
 
   free(mem);
+
+  memcpy(game->last_revealed_board, game->revealed_board, game->config.rows * game->config.cols);
 }
 
 int run_one_game(int sock, struct Game *game)
@@ -423,10 +447,10 @@ int run_one_game(int sock, struct Game *game)
 #endif // SHOW
 
     char c;
-    int msg_type;
+    int8_t msg_type;
     if (sock >= 0)
     {
-      if (!get_message(sock, &msg_type, &c))
+      if (!get_message(sock, &msg_type, &c, NULL))
       {
         usleep(10);
         continue;
@@ -496,9 +520,9 @@ int run_one_game(int sock, struct Game *game)
       break;
     }
 
-    update_revealed_board(game);
     if (board_changed)
     {
+      update_revealed_board(game);
       write_revealed_board(game, sock);
     }
   }
@@ -514,8 +538,8 @@ int run_one_game(int sock, struct Game *game)
 bool GetConfigFromSock(struct Game *game, int sock, bool *should_continue)
 {
   char msg[sizeof(game->config)];
-  int msg_type;
-  if (!get_message(sock, &msg_type, msg))
+  int8_t msg_type;
+  if (!get_message(sock, &msg_type, msg, NULL))
   {
     usleep(10);
     *should_continue = true;
@@ -558,8 +582,10 @@ bool GetConfigFromUser(struct Game *game)
     case '4':
       printw("enter num rows: ");
       scanw("%d", &game->config.rows);
+      if (game->config.rows > INT8_MAX) should_continue = true;
       printw("enter num cols: ");
       scanw("%d", &game->config.cols);
+      if (game->config.cols > INT8_MAX) should_continue = true;
       printw("enter num mines: ");
       scanw("%d", &game->config.mines);
       break;
