@@ -344,6 +344,7 @@ void DeInit(struct Game *game)
   free(game->last_revealed_board);
 }
 
+// TODO (oc) : keep a list of changed cells instead of updating all cells
 void update_revealed_board(struct Game *game)
 {
   char *ptr = game->revealed_board;
@@ -511,12 +512,7 @@ int run_one_game(int sock, struct Game *game)
     win = CheckWin(game);
     if (lose || win)
     {
-      // FILE *f = fopen("/tmp/game.txt", "a");
-      // fprintf(f, "win %d\n", win);
-      // fclose(f);
       send_message(sock, 2, &win, -1);
-
-      // usleep(100000);
       break;
     }
 
@@ -606,8 +602,6 @@ bool GetConfigFromUser(struct Game *game)
 
 void run_game(int sock)
 {
-  // struct all_fds all_fds = *(struct all_fds *)arguments;
-
   int ch;
 
   setlocale(LC_ALL, "");
@@ -642,10 +636,6 @@ void run_game(int sock)
         break;
       noecho();
     }
-
-    // FILE *f = fopen("/tmp/game.txt", "a");
-    // fprintf(f, "game.config %d %d %d\n", game.config.rows, game.config.cols, game.config.mines);
-    // fclose(f);
 
     int ret = run_one_game(sock, &game);
     if (ret < 0)

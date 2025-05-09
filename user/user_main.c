@@ -63,9 +63,6 @@ bool CheckForObviousMines(const struct User *user, int sock)
       if (user->revealed_board[i * user->config.cols + j] == 'f')
         continue;
 
-      // if (revealed_board[i * COLS + j] == '*')
-      //   return true;
-
       int8_t val = user->revealed_board[i * user->config.cols + j] - '0';
       int8_t sum_unrevealed = 0;
       int8_t sum_flags = 0;
@@ -93,10 +90,6 @@ bool CheckForObviousMines(const struct User *user, int sock)
         }
       }
 
-      // FILE *f = fopen("/tmp/user.txt", "a");
-      // fprintf(f, "i %d j %d val %d sum_unrevealed %d sum_flags %d\n", i, j, val, sum_unrevealed, sum_flags);
-      // fclose(f);
-
       if (val == sum_flags && sum_unrevealed)
       {
         // reveal unrevealed by logic
@@ -117,10 +110,6 @@ bool CheckForObviousMines(const struct User *user, int sock)
           {
             int diff_i = neigh_row_ind - user->pos.i;
             int diff_j = neigh_col_ind - user->pos.j;
-
-            // f = fopen("/tmp/user.txt", "a");
-            // fprintf(f, "3 di %d dj %d\n", diff_i, diff_j);
-            // fclose(f);
 
             MoveByDiff(sock, diff_i, diff_j);
 
@@ -152,16 +141,8 @@ bool CheckForObviousMines(const struct User *user, int sock)
 
         if (user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind] == ' ')
         {
-          // FILE *f = fopen("/tmp/user.txt", "a");
-          // fprintf(f, "i %d j %d\n", neigh_row_ind, neigh_col_ind);
-          // fclose(f);
-
           int diff_i = neigh_row_ind - user->pos.i;
           int diff_j = neigh_col_ind - user->pos.j;
-
-          // f = fopen("/tmp/user.txt", "a");
-          // fprintf(f, "di %d dj %d\n", diff_i, diff_j);
-          // fclose(f);
 
           MoveByDiff(sock, diff_i, diff_j);
 
@@ -338,18 +319,10 @@ void RevealRandomLocation(const struct User *user, int sock)
     indices[ind] = indices[i];
     indices[i] = temp;
 
-    // FILE *f = fopen("/tmp/user.txt", "a");
-    // fprintf(f, "1 i %d j %d\n", row_ind, col_ind);
-    // fclose(f);
-
     int row_ind = temp / user->config.cols;
     int col_ind = temp % user->config.cols;
     int diff_i = row_ind - user->pos.i;
     int diff_j = col_ind - user->pos.j;
-
-    // f = fopen("/tmp/user.txt", "a");
-    // fprintf(f, "2 di %d dj %d\n", diff_i, diff_j);
-    // fclose(f);
 
     MoveByDiff(sock, diff_i, diff_j);
 
@@ -357,6 +330,8 @@ void RevealRandomLocation(const struct User *user, int sock)
     send_message(sock, 1, &c, -1);
     break;
   }
+
+  free(indices);
 }
 
 enum EndGame
@@ -366,12 +341,13 @@ enum EndGame
   Win
 };
 
-void parse_board_message(char *msg, int len, struct User *user) {
+void parse_board_message(char *msg, int len, struct User *user)
+{
   int num_cells = (len - sizeof(struct Position)) / sizeof(struct Cell);
-  printf("num_cells %d\n", num_cells);
   char *ptr = msg;
   struct Cell cell;
-  for (int i = 0; i < num_cells; ++i) {
+  for (int i = 0; i < num_cells; ++i)
+  {
     cell.pos.i = *ptr++;
     cell.pos.j = *ptr++;
     cell.val = *ptr++;
@@ -406,7 +382,6 @@ void run_one_game(int sock, struct User *user)
     switch (msg_type)
     {
     case 0:
-      printf("111\n");
       parse_board_message(msg, len, user);
       break;
     case 2:

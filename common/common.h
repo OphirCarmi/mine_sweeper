@@ -19,22 +19,14 @@ static int8_t neighbours[][2] = {
     {1, 1},   // למטה מימין
 };
 
-// ------------------------------------
-// | למעלה מימין | למעלה | למעלה משמאל |
-// ------------------------------------
-// |     מימין |   התא |   משמאל       |
-// ------------------------------------
-// | למטה מימין |  למטה |  למטה משמאל  |
-// ------------------------------------
-
 static int8_t num_neighbours = sizeof(neighbours) / sizeof(neighbours[0]);
 
-struct message {
+struct __attribute__((__packed__)) message {
   int8_t type;
   int len;
 };
 
-struct GameConfig
+struct __attribute__((__packed__)) GameConfig
 {
   int8_t rows;
   int8_t cols;
@@ -48,13 +40,13 @@ struct message messages[] = {
   {3, sizeof(struct GameConfig)} // win/loose
 };
 
-struct Position
+struct __attribute__((__packed__)) Position
 {
   int8_t i;
   int8_t j;
 };
 
-struct Cell {
+struct __attribute__((__packed__)) Cell {
   struct Position pos;
   char val;
 };
@@ -62,13 +54,9 @@ struct Cell {
 bool get_message(int sock, int8_t *type, void *data, int *len) {
   struct message msg;
   int num_read = read(sock, &msg.type, sizeof(msg.type));
-  FILE *f = fopen("/tmp/common.txt", "a");
-  fprintf(f, "1 num_read %d\n", num_read);
-  fclose(f);
   if (num_read != sizeof(msg.type)) return false;
 
   *type = msg.type;
-  // if (msg.type != wanted_type) return false;
 
   num_read = read(sock, &msg.len, sizeof(msg.len));
   if (num_read != sizeof(msg.len)) return false;
