@@ -9,31 +9,25 @@
 
 // 'X' is out of board or number
 // 'S' is where we should flag
+// 'R' can be anything
 
-static int8_t cell_with_neighbours[][2] = {
-    {-1, -1}, // למעלה משמאל
-    {-1, 0},  // למעלה
-    {-1, 1},  // למעלה מימין
-    {0, -1},  // משמאל
-    {0, 0},   // התא
-    {0, 1},   // מימין
-    {1, -1},  // למטה משמאל
-    {1, 0},   // למטה
-    {1, 1},   // למטה מימין
-};
+static int8_t cell_with_neighbours[25][2];
 
 static int8_t num_cell_with_neighbours = sizeof(cell_with_neighbours) / sizeof(cell_with_neighbours[0]);
 
 static char *patterns[] = {
-    "XXX121S  ",
+    "RRRRRRXXXRR121RRS  RRRRRR",
+    "RXXXRRS2XRR 3fRR 2XRRXXXR",
+    "RXXXRRS2fRR 3XRR 1XRRXXXR",
+    "RXXXRR 1fRR 3XRRS2fRRXXXR", // mirror of last one
 };
 static size_t patterns_len = sizeof(patterns) / sizeof(patterns[0]);
 
-static int8_t rotations[4][9] = {
-    {0, 1, 2, 3, 4, 5, 6, 7, 8},
-    {6, 3, 0, 7, 4, 1, 8, 5, 2},
-    {8, 7, 6, 5, 4, 3, 2, 1, 0},
-    {2, 5, 8, 1, 4, 7, 0, 3, 6},
+static int8_t rotations[4][25] = {
+    {20, 15, 10, 5, 0, 21, 16, 11, 6, 1, 22, 17, 12, 7, 2, 23, 18, 13, 8, 3, 24, 19, 14, 9, 4},
+    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24},
+    {4, 9, 14, 19, 24, 3, 8, 13, 18, 23, 2, 7, 12, 17, 22, 1, 6, 11, 16, 21, 0, 5, 10, 15, 20},
+    {24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0},
 };
 
 struct User
@@ -203,6 +197,9 @@ bool CheckForObviousMines(const struct User *user, int sock)
           // printf("f in (%d, %d)\n", neigh_row_ind, neigh_col_ind);
           // getc(stdin);
 
+          // printf("found %d,%d i %d, j %d val %c sum_unrevealed %d sum_flags %d\n", neigh_row_ind, neigh_col_ind, i, j, val, sum_unrevealed, sum_flags);
+          // fflush(stdout);
+          // getchar();
           char c = 'f';
           send_message(sock, 1, &c, -1);
 #ifdef SHOW
@@ -225,43 +222,56 @@ bool CheckForAllMines(const struct User *user, int sock)
   {
     for (int j = 0; j < user->config.cols; ++j)
     {
-      if (user->revealed_board[i * user->config.cols + j] != '2')
-        continue;
-
-      // 'X' is out of board or number
-      char *expected[4] = {"XXX11   ", "   11XXX", " 1X X 1X", "X1 X X1 "}; //, "XXX12   ", "XXX21   ", "   12XXX", "   21XXX", " 1X X 2X", " 2X X 1X", "X2 X X1 ", "X1 X X2 "};
-      int flag_positions[4] = {5, 0, 0, 2};                                 //, 6, 5, 1, 0, 3, 0, 2, 4};
-
-      for (int p = 0; p < 4; ++p)
+      for (int p = 0; p < patterns_len * 4; ++p)
       {
         bool ok = true;
-        for (int k = 0; k < num_neighbours; ++k)
+        int8_t should_flag = -1;
+        for (int k = 0; k < num_cell_with_neighbours; ++k)
         {
-          int neigh_row_ind = i + neighbours[k][0];
-          int neigh_col_ind = j + neighbours[k][1];
+          int neigh_row_ind = i + cell_with_neighbours[k][0];
+          int neigh_col_ind = j + cell_with_neighbours[k][1];
+          // printf("p %d k %d\n", p, k);
+          // printf("%c\n", user->patterns[p][k]);
           // נבדוק שהוא לא מעל או מתחת ללוח
-          switch (expected[p][k])
+          switch (user->patterns[p][k])
           {
+          case 'R':
+            break;
           case 'X':
             if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
-            {
               break;
-            }
             char neigh_val = user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind];
             if (neigh_val < '0' || neigh_val > '8')
               ok = false;
             break;
-          case ' ':
-          // FALLTHROUGH
-          case '1':
-            // // FALLTHROUGH
-            // case '2':
+          case 'S':
             if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
             {
               ok = false;
               break;
             }
-            if (user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind] != expected[p][k])
+            if (user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind] != ' ')
+            {
+              ok = false;
+              break;
+            }
+            should_flag = k;
+            break;
+          case ' ':
+          // FALLTHROUGH
+          case 'f':
+          // FALLTHROUGH
+          case '1':
+          // FALLTHROUGH
+          case '2':
+          // FALLTHROUGH
+          case '3':
+            if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
+            {
+              ok = false;
+              break;
+            }
+            if (user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind] != user->patterns[p][k])
               ok = false;
             break;
           }
@@ -271,11 +281,13 @@ bool CheckForAllMines(const struct User *user, int sock)
         if (!ok)
           continue;
 
-        int neigh_row_ind = i + neighbours[flag_positions[p]][0];
-        int neigh_col_ind = j + neighbours[flag_positions[p]][1];
+        int neigh_row_ind = i + cell_with_neighbours[should_flag][0];
+        int neigh_col_ind = j + cell_with_neighbours[should_flag][1];
 
-        // if (p >= 4) {
+        // if (p > 3)
+        // {
         //   printf("found %d,%d %d", i, j, p);
+        //   fflush(stdout);
         //   getchar();
         // }
 
@@ -286,7 +298,9 @@ bool CheckForAllMines(const struct User *user, int sock)
 
         char c = 'f';
         send_message(sock, 1, &c, -1);
-        // usleep(1000000);
+#ifdef SHOW
+        usleep(100000);
+#endif // SHOW
 
         return true;
       }
@@ -389,6 +403,7 @@ void parse_board_message(char *msg, int len, struct User *user)
 
 void CreatePatterns(struct User *user)
 {
+  size_t pattern_len = strlen(patterns[0]);
   int ind = 0;
   user->patterns = (char **)malloc(patterns_len * 4 * sizeof(*user->patterns));
   for (int i = 0; i < patterns_len; ++i)
@@ -397,15 +412,14 @@ void CreatePatterns(struct User *user)
     for (int j = 0; j < 4; ++j)
     {
       int8_t *curr_rot = rotations[j];
-      user->patterns[ind] = (char *)malloc(9);
-      for (int k = 0; k < 9; ++k)
+      user->patterns[ind] = (char *)malloc(pattern_len);
+      for (int k = 0; k < pattern_len; ++k)
       {
         user->patterns[ind][k] = curr_pattern[curr_rot[k]];
       }
       ind++;
     }
   }
-  printf("ind %d\n", ind);
 }
 
 void Init(struct User *user)
@@ -416,6 +430,15 @@ void Init(struct User *user)
     user->revealed_board[i] = ' ';
 
   CreatePatterns(user);
+
+  for (int i = 0; i < 5; ++i)
+  {
+    for (int j = 0; j < 5; ++j)
+    {
+      cell_with_neighbours[i * 5 + j][0] = i - 2;
+      cell_with_neighbours[i * 5 + j][1] = j - 2;
+    }
+  }
 }
 
 void DeInit(struct User *user)
@@ -432,12 +455,12 @@ void run_one_game(int sock, struct User *user)
 
   Init(user);
 
-  for (int i = 0; i < patterns_len * 4; ++i)
-  {
-    printf("'%s'\n", user->patterns[i]);
-  }
-  fflush(stdout);
-  // exit(-1);
+  // for (int i = 0; i < patterns_len * 4; ++i)
+  // {
+  //   printf("'%s'\n", user->patterns[i]);
+  // }
+  // fflush(stdout);
+  // // return;
 
   char *msg = (char *)malloc(num_cells * sizeof(struct Cell) + sizeof(user->pos));
 

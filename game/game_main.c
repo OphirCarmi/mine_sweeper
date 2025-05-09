@@ -604,6 +604,7 @@ void run_game(int sock)
 {
   int ch;
 
+#ifdef SHOW
   setlocale(LC_ALL, "");
 
   /* Curses Initialisations */
@@ -615,6 +616,7 @@ void run_game(int sock)
   init_pair(3, -1, COLOR_RED);
   raw();
   keypad(stdscr, TRUE);
+#endif  // SHOW
 
   // srand(time(NULL));
 
@@ -642,7 +644,9 @@ void run_game(int sock)
       break;
   }
 
+#ifdef SHOW
   endwin();
+#endif  // SHOW
 }
 
 void CreateSocket(int *server_fd, int *new_socket)
