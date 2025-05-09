@@ -7,8 +7,38 @@
 
 #include "common/common.h"
 
+// 'X' is out of board or number
+// 'S' is where we should flag
+
+static int8_t cell_with_neighbours[][2] = {
+    {-1, -1}, // למעלה משמאל
+    {-1, 0},  // למעלה
+    {-1, 1},  // למעלה מימין
+    {0, -1},  // משמאל
+    {0, 0},   // התא
+    {0, 1},   // מימין
+    {1, -1},  // למטה משמאל
+    {1, 0},   // למטה
+    {1, 1},   // למטה מימין
+};
+
+static int8_t num_cell_with_neighbours = sizeof(cell_with_neighbours) / sizeof(cell_with_neighbours[0]);
+
+static char *patterns[] = {
+    "XXX121S  ",
+};
+static size_t patterns_len = sizeof(patterns) / sizeof(patterns[0]);
+
+static int8_t rotations[4][9] = {
+    {0, 1, 2, 3, 4, 5, 6, 7, 8},
+    {6, 3, 0, 7, 4, 1, 8, 5, 2},
+    {8, 7, 6, 5, 4, 3, 2, 1, 0},
+    {2, 5, 8, 1, 4, 7, 0, 3, 6},
+};
+
 struct User
 {
+  char **patterns;
   char *revealed_board;
   struct Position pos;
   struct GameConfig config;
@@ -357,13 +387,57 @@ void parse_board_message(char *msg, int len, struct User *user)
   memcpy(&user->pos, ptr, sizeof(user->pos));
 }
 
+void CreatePatterns(struct User *user)
+{
+  int ind = 0;
+  user->patterns = (char **)malloc(patterns_len * 4 * sizeof(*user->patterns));
+  for (int i = 0; i < patterns_len; ++i)
+  {
+    char *curr_pattern = patterns[i];
+    for (int j = 0; j < 4; ++j)
+    {
+      int8_t *curr_rot = rotations[j];
+      user->patterns[ind] = (char *)malloc(9);
+      for (int k = 0; k < 9; ++k)
+      {
+        user->patterns[ind][k] = curr_pattern[curr_rot[k]];
+      }
+      ind++;
+    }
+  }
+  printf("ind %d\n", ind);
+}
+
+void Init(struct User *user)
+{
+  int num_cells = user->config.rows * user->config.cols;
+  user->revealed_board = (char *)malloc(num_cells);
+  for (int i = 0; i < num_cells; ++i)
+    user->revealed_board[i] = ' ';
+
+  CreatePatterns(user);
+}
+
+void DeInit(struct User *user)
+{
+  free(user->revealed_board);
+  for (int i = 0; i < patterns_len * 4; ++i)
+    free(user->patterns[i]);
+  free(user->patterns);
+}
+
 void run_one_game(int sock, struct User *user)
 {
   int num_cells = user->config.rows * user->config.cols;
 
-  user->revealed_board = (char *)malloc(num_cells);
-  for (int i = 0; i < num_cells; ++i)
-    user->revealed_board[i] = ' ';
+  Init(user);
+
+  for (int i = 0; i < patterns_len * 4; ++i)
+  {
+    printf("'%s'\n", user->patterns[i]);
+  }
+  fflush(stdout);
+  // exit(-1);
 
   char *msg = (char *)malloc(num_cells * sizeof(struct Cell) + sizeof(user->pos));
 
@@ -429,7 +503,7 @@ void run_one_game(int sock, struct User *user)
   }
 
   free(msg);
-  free(user->revealed_board);
+  DeInit(user);
 }
 
 void run_user(int sock, struct User *user)
