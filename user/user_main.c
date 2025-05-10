@@ -16,10 +16,47 @@ static int8_t cell_with_neighbours[25][2];
 static int8_t num_cell_with_neighbours = sizeof(cell_with_neighbours) / sizeof(cell_with_neighbours[0]);
 
 static char *patterns[] = {
-    "RRRRRRXXXRR121RRS  RRRRRR",
-    "RXXXRRS2XRR 3fRR 2XRRXXXR",
-    "RXXXRRS2fRR 3XRR 1XRRXXXR",
-    "RXXXRR 1fRR 3XRRS2fRRXXXR", // mirror of last one
+    "RRRRR"
+    "RXXXR"
+    "R121R"
+    "RS  R"
+    "RRRRR",
+
+    "RXXXR"
+    "RS2XR"
+    "R 3fR"
+    "R 2XR"
+    "RXXXR",
+
+    "RXXXR"
+    "RS2fR"
+    "R 3XR"
+    "R 1XR"
+    "RXXXR",
+
+    "RXXXR"
+    "R 1XR"
+    "R 3XR"
+    "RS2fR"
+    "RXXXR", // mirror of last one
+
+    "RXXXR"
+    "RS3fR"
+    "R 4fR"
+    "R 2XR"
+    "RXXXR",
+
+    "RXXXR"
+    "R 2XR"
+    "R 4fR"
+    "RS3fR"
+    "RXXXR", // mirror of last one
+
+    "RXXXR"
+    "RS3fR"
+    "R 5fR"
+    "R 3fR"
+    "RXXXR",
 };
 static size_t patterns_len = sizeof(patterns) / sizeof(patterns[0]);
 

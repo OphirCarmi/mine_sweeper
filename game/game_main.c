@@ -197,8 +197,6 @@ void RevealZeroes(struct Game *game)
     int curr_row_ind = head.lh_first->row_ind;
     int curr_col_ind = head.lh_first->col_ind;
 
-    printw("%d %d\n", curr_row_ind, curr_col_ind);
-
     np = head.lh_first;
     LIST_REMOVE(head.lh_first, entries);
     free(np);
@@ -237,6 +235,7 @@ void RevealZeroes(struct Game *game)
 
 bool RevealLocation(struct Game *game)
 {
+  // printf("pos %d %d, %d\n", (int)game->pos.i, (int)game->pos.j, (int)game->hidden_board[game->pos.i][game->pos.j]);
   switch (game->hidden_board[game->pos.i][game->pos.j])
   {
   case 0:
@@ -434,8 +433,9 @@ int run_one_game(int sock, struct Game *game)
 
   bool board_changed = false;
 
-  for (;;)
+  for (int iter = 0;; ++iter)
   {
+    // printf("iter %d\n", iter);
 #ifdef SHOW
     DrawBoard(game, false, board_changed);
 
@@ -461,6 +461,8 @@ int run_one_game(int sock, struct Game *game)
     {
       c = getch();
     }
+
+    // printf("c '%c'\n", c);
 
     board_changed = false;
     bool lose = false;
@@ -554,7 +556,7 @@ bool GetConfigFromUser(struct Game *game)
 {
   printw("enter level (1/2/3/4)\n1: Easy\n2: Intermediate\n3: Hard\n4: Custom\n");
   bool should_exit = false;
-  while (true)
+  for (;;)
   {
     int key = getch();
     bool should_continue = false;
@@ -622,8 +624,10 @@ void run_game(int sock)
 
   struct Game game;
 
-  for (;;)
+  for (int g = 0;; ++g)
   {
+    // printf("g %d\n", g);
+
     if (sock >= 0)
     {
       bool should_continue = false;
