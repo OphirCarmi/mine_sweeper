@@ -8,7 +8,9 @@
 #include "common/common.h"
 
 // 'X' is out of board or number
+// 'Y' is out of board or number or space
 // 'S' is where we should flag
+// 'E' is where we should reveal
 // 'R' can be anything
 
 static int8_t cell_with_neighbours[25][2];
@@ -57,6 +59,30 @@ static char *patterns[] = {
     "R 5fR"
     "R 3fR"
     "RXXXR",
+
+    "RRRRR"
+    "RYS1X"
+    "RY 2X"
+    "R1 2X"
+    "RRRRR",
+
+    "XXXXX"
+    "X  2f"
+    "X I3X"
+    "X23fX"
+    "XXfXR",
+
+    "RXXXR"
+    "RX1 R"
+    "RX2 R"
+    "RXfER"
+    "RRRRR",
+
+    "RRRRR"
+    "RXfSR"
+    "RX3 R"
+    "RX1 R"
+    "RRRRR",
 };
 static size_t patterns_len = sizeof(patterns) / sizeof(patterns[0]);
 
@@ -71,6 +97,7 @@ struct User
 {
   char **patterns;
   char *revealed_board;
+  int num_flags;
   struct Position pos;
   struct GameConfig config;
 };
@@ -112,7 +139,7 @@ void MoveByDiff(int sock, int diff_i, int diff_j)
   }
 }
 
-bool CheckForObviousMines(const struct User *user, int sock)
+bool CheckForObviousMines(struct User *user, int sock)
 {
   for (int i = 0; i < user->config.rows; ++i)
   {
@@ -239,6 +266,7 @@ bool CheckForObviousMines(const struct User *user, int sock)
           // getchar();
           char c = 'f';
           send_message(sock, 1, &c, -1);
+          user->num_flags++;
 #ifdef SHOW
           usleep(100000);
 #endif // SHOW
@@ -251,7 +279,7 @@ bool CheckForObviousMines(const struct User *user, int sock)
   return false;
 }
 
-bool CheckForAllMines(const struct User *user, int sock)
+bool CheckForAllMines(struct User *user, int sock)
 {
   // return false;
   // search for 1,2,1 horizontally
@@ -263,13 +291,14 @@ bool CheckForAllMines(const struct User *user, int sock)
       {
         bool ok = true;
         int8_t should_flag = -1;
+        int8_t should_reveal = -1;
         for (int k = 0; k < num_cell_with_neighbours; ++k)
         {
           int neigh_row_ind = i + cell_with_neighbours[k][0];
           int neigh_col_ind = j + cell_with_neighbours[k][1];
           // printf("p %d k %d\n", p, k);
           // printf("%c\n", user->patterns[p][k]);
-          // נבדוק שהוא לא מעל או מתחת ללוח
+          char neigh_val;
           switch (user->patterns[p][k])
           {
           case 'R':
@@ -277,10 +306,23 @@ bool CheckForAllMines(const struct User *user, int sock)
           case 'X':
             if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
               break;
-            char neigh_val = user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind];
+            neigh_val = user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind];
             if (neigh_val < '0' || neigh_val > '8')
               ok = false;
             break;
+          case 'Y':
+            if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
+              break;
+            neigh_val = user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind];
+            if (neigh_val != ' ' && (neigh_val < '0' || neigh_val > '8'))
+              ok = false;
+            break;
+          case 'I':
+            if (user->num_flags != user->config.mines - 1) {
+              ok = false;
+              break;
+            }
+            // FALLTHROUGH
           case 'S':
             if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
             {
@@ -294,6 +336,19 @@ bool CheckForAllMines(const struct User *user, int sock)
             }
             should_flag = k;
             break;
+          case 'E':
+            if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
+            {
+              ok = false;
+              break;
+            }
+            if (user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind] != ' ')
+            {
+              ok = false;
+              break;
+            }
+            should_reveal = k;
+            break;
           case ' ':
           // FALLTHROUGH
           case 'f':
@@ -303,6 +358,16 @@ bool CheckForAllMines(const struct User *user, int sock)
           case '2':
           // FALLTHROUGH
           case '3':
+            // FALLTHROUGH
+          case '4':
+            // FALLTHROUGH
+          case '5':
+            // FALLTHROUGH
+          case '6':
+            // FALLTHROUGH
+          case '7':
+            // FALLTHROUGH
+          case '8':
             if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
             {
               ok = false;
@@ -318,8 +383,10 @@ bool CheckForAllMines(const struct User *user, int sock)
         if (!ok)
           continue;
 
-        int neigh_row_ind = i + cell_with_neighbours[should_flag][0];
-        int neigh_col_ind = j + cell_with_neighbours[should_flag][1];
+        int ind = should_flag >= 0 ? should_flag : should_reveal;
+
+        int neigh_row_ind = i + cell_with_neighbours[ind][0];
+        int neigh_col_ind = j + cell_with_neighbours[ind][1];
 
         // if (p > 3)
         // {
@@ -333,8 +400,10 @@ bool CheckForAllMines(const struct User *user, int sock)
 
         MoveByDiff(sock, diff_i, diff_j);
 
-        char c = 'f';
+        char c = should_flag >= 0 ? 'f' : ' ';
         send_message(sock, 1, &c, -1);
+        if (c == 'f')
+          user->num_flags++;
 #ifdef SHOW
         usleep(100000);
 #endif // SHOW
@@ -346,7 +415,7 @@ bool CheckForAllMines(const struct User *user, int sock)
   return false;
 }
 
-bool CheckForSolution(const struct User *user, int sock)
+bool CheckForSolution(struct User *user, int sock)
 {
   if (CheckForObviousMines(user, sock))
     return true;
@@ -477,6 +546,7 @@ void Init(struct User *user)
       cell_with_neighbours[i * 5 + j][1] = j - 2;
     }
   }
+  user->num_flags = 0;
 }
 
 void DeInit(struct User *user)
@@ -502,7 +572,7 @@ void run_one_game(int sock, struct User *user)
 
   char *msg = (char *)malloc(num_cells * sizeof(struct Cell) + sizeof(user->pos));
 
-  for (;;)
+  for (int iter = 0;; ++iter)
   {
     int8_t msg_type;
     int len;
@@ -554,6 +624,8 @@ void run_one_game(int sock, struct User *user)
     if (CheckForSolution(user, sock))
       continue;
 
+    // printf("revealing random %d\n", iter);
+    // getchar();
     RevealRandomLocation(user, sock);
   }
 
