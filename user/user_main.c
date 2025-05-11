@@ -424,6 +424,7 @@ enum EndGame
 
 void parse_board_message(char *msg, int len, struct User *user)
 {
+  // printf("len %d\n", len);
   int num_cells = (len - sizeof(struct Position)) / sizeof(struct Cell);
   char *ptr = msg;
   struct Cell cell;
@@ -531,30 +532,24 @@ void run_one_game(int sock, struct User *user)
       break;
     }
 
-    // FILE *f = fopen("/tmp/user.txt", "a");
-    // fprintf(f, "num_read %d\n", num_read);
-
-    // for (int m = 0; m < ROWS; ++m)
+    // for (int m = 0; m < user->config.rows; ++m)
     // {
-    //   for (int j = 0; j < COLS; ++j)
+    //   for (int j = 0; j < user->config.cols; ++j)
     //   {
-    //     fprintf(f, "----");
+    //     printf("----");
     //   }
-    //   fprintf(f, "-\n");
-    //   for (int n = 0; n < COLS; ++n)
+    //   printf("-\n");
+    //   for (int n = 0; n < user->config.cols; ++n)
     //   {
-    //     fprintf(f, "| %c ", revealed_board[m * COLS + n]);
+    //     printf("| %c ", user->revealed_board[m * user->config.cols + n]);
     //   }
-    //   fprintf(f, "|\n");
+    //   printf("|\n");
     // }
-    // for (int j = 0; j < COLS; ++j)
+    // for (int j = 0; j < user->config.cols; ++j)
     // {
-    //   fprintf(f, "----");
+    //   printf("----");
     // }
-    // fprintf(f, "-\n");
-
-    // fprintf(f, "before CheckForSolution\n");
-    // fclose(f);
+    // printf("-\n");
 
     if (CheckForSolution(user, sock))
       continue;

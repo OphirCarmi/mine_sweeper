@@ -20,8 +20,8 @@ struct Game
   bool **is_revealed_board;
   bool **is_flagged_board;
 
-  char *revealed_board;
-  char *last_revealed_board;
+  char *changed_cells;
+  int changed_cells_len;
 
   struct Position pos;
 
@@ -174,7 +174,6 @@ void RevealZeroes(struct Game *game)
 {
   LIST_HEAD(listhead, entry)
   head;
-  struct listhead *headp; /* List head. */
   struct entry
   {
     int row_ind;
@@ -191,6 +190,11 @@ void RevealZeroes(struct Game *game)
   LIST_INSERT_HEAD(&head, np, entries);
 
   game->is_revealed_board[game->pos.i][game->pos.j] = true;
+
+  char *ptr = game->changed_cells;
+  *ptr++ = game->pos.i;
+  *ptr++ = game->pos.j;
+  *ptr++ = game->hidden_board[game->pos.i][game->pos.j] + '0';
 
   while (head.lh_first != NULL)
   {
@@ -216,6 +220,10 @@ void RevealZeroes(struct Game *game)
 
       game->is_revealed_board[neigh_row_ind][neigh_col_ind] = true;
 
+      *ptr++ = neigh_row_ind;
+      *ptr++ = neigh_col_ind;
+      *ptr++ = game->hidden_board[neigh_row_ind][neigh_col_ind] + '0';
+
 #ifdef SHOW
       DrawBoard(game, false, false);
       refresh();
@@ -231,6 +239,8 @@ void RevealZeroes(struct Game *game)
       LIST_INSERT_HEAD(&head, np, entries);
     }
   }
+
+  game->changed_cells_len = (ptr - game->changed_cells) / sizeof(struct Cell);
 }
 
 bool RevealLocation(struct Game *game)
@@ -243,6 +253,10 @@ bool RevealLocation(struct Game *game)
     return true;
   case -1:
     game->is_revealed_board[game->pos.i][game->pos.j] = true;
+    game->changed_cells[0] = game->pos.i;
+    game->changed_cells[1] = game->pos.j;
+    game->changed_cells[2] = '*';
+    game->changed_cells_len = 1;
 #ifdef SHOW
     DrawBoard(game, true, true);
     printw("\n\nBOOOOOOOOOM!!!! GAME OVER!\n");
@@ -252,6 +266,10 @@ bool RevealLocation(struct Game *game)
     return false;
   default:
     game->is_revealed_board[game->pos.i][game->pos.j] = true;
+    game->changed_cells[0] = game->pos.i;
+    game->changed_cells[1] = game->pos.j;
+    game->changed_cells[2] = game->hidden_board[game->pos.i][game->pos.j] + '0';
+    game->changed_cells_len = 1;
     return true;
   }
 }
@@ -315,12 +333,8 @@ void Init(struct Game *game)
     game->is_revealed_board[i] = (bool *)calloc(game->config.cols, 1);
 
   int num_cells = game->config.rows * game->config.cols;
-  game->revealed_board = (char *)malloc(num_cells);
-  game->last_revealed_board = (char *)malloc(num_cells);
-  for (int i = 0; i < num_cells; ++i) {
-    game->revealed_board[i] = ' ';
-    game->last_revealed_board[i] = ' ';
-  }
+  game->changed_cells = (char *)malloc(num_cells * sizeof(struct Cell));
+  game->changed_cells_len = 0;
 
   memset(&game->pos, 0, sizeof(game->pos));
 }
@@ -339,36 +353,7 @@ void DeInit(struct Game *game)
     free(game->is_revealed_board[i]);
   free(game->is_revealed_board);
 
-  free(game->revealed_board);
-  free(game->last_revealed_board);
-}
-
-// TODO (oc) : keep a list of changed cells instead of updating all cells
-void update_revealed_board(struct Game *game)
-{
-  char *ptr = game->revealed_board;
-  for (int i = 0; i < game->config.rows; ++i)
-  {
-    for (int j = 0; j < game->config.cols; ++j)
-    {
-      if (game->is_revealed_board[i][j])
-      {
-        if (game->hidden_board[i][j] == -1)
-          *ptr = '*';
-        else
-          *ptr = '0' + game->hidden_board[i][j];
-      }
-      else if (game->is_flagged_board[i][j])
-      {
-        *ptr = 'f';
-      }
-      else
-      {
-        *ptr = ' ';
-      }
-      ++ptr;
-    }
-  }
+  free(game->changed_cells);
 }
 
 void write_revealed_board(struct Game *game, int sock)
@@ -390,39 +375,24 @@ void write_revealed_board(struct Game *game, int sock)
   // fprintf(f, "\n\n");
   // fclose(f);
 
-  int num_cells = game->config.rows * game->config.cols;
-  int num_changed = 0;
-  for (int i = 0; i < num_cells; ++i)
-    if (game->revealed_board[i] != game->last_revealed_board[i])
-      num_changed++;
-
-  int tot_size = num_changed * sizeof(struct Cell) + sizeof(game->pos);
+  int cell_size = game->changed_cells_len * sizeof(struct Cell);
+  int tot_size = cell_size + sizeof(game->pos);
   char *mem = (char *)malloc(tot_size);
   char *ptr = mem;
-  struct Cell cell;
-  for (int i = 0; i < num_cells; ++i) {
-    char curr = game->revealed_board[i];
-    if (curr != game->last_revealed_board[i]) {
-      cell.pos.i = i / game->config.cols;
-      cell.pos.j = i % game->config.cols;
-      cell.val = curr;
-      memcpy(ptr, &cell, sizeof(cell));
-      ptr += sizeof(cell);
-    }
+  if (cell_size) {
+    memcpy(ptr, game->changed_cells, cell_size);
+    ptr += cell_size;
   }
   memcpy(ptr, &game->pos, sizeof(game->pos));
 
   send_message(sock, 0, mem, tot_size);
 
   free(mem);
-
-  memcpy(game->last_revealed_board, game->revealed_board, game->config.rows * game->config.cols);
 }
 
 int run_one_game(int sock, struct Game *game)
 {
   Init(game);
-  update_revealed_board(game);
   write_revealed_board(game, sock);
 
   bool should_exit = false;
@@ -503,6 +473,10 @@ int run_one_game(int sock, struct Game *game)
       break;
     case 'f':
       game->is_flagged_board[game->pos.i][game->pos.j] = !game->is_flagged_board[game->pos.i][game->pos.j];
+      game->changed_cells[0] = game->pos.i;
+      game->changed_cells[1] = game->pos.j;
+      game->changed_cells[2] = game->is_flagged_board[game->pos.i][game->pos.j] ? 'f' : ' ';
+      game->changed_cells_len = 1;
       board_changed = true;
       break;
     }
@@ -519,10 +493,7 @@ int run_one_game(int sock, struct Game *game)
     }
 
     if (board_changed)
-    {
-      update_revealed_board(game);
       write_revealed_board(game, sock);
-    }
   }
 
   DeInit(game);
