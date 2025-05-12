@@ -13,89 +13,158 @@
 // 'E' is where we should reveal
 // 'R' can be anything
 
-static int8_t cell_with_neighbours[25][2];
+static int8_t cell_with_neighbours[49][2];
 
 static int8_t num_cell_with_neighbours = sizeof(cell_with_neighbours) / sizeof(cell_with_neighbours[0]);
 
-static char *patterns[] = {
-    "RRRRR"
-    "RXXXR"
-    "R121R"
-    "RS  R"
-    "RRRRR",
+static char patterns[][49] = {
+    "RRRRRRR"
+    "RRRRRRR"
+    "RRXXXRR"
+    "RR121RR"
+    "RRS  RR"
+    "RRRRRRR"
+    "RRRRRRR",
 
-    "RXXXR"
-    "RS2XR"
-    "R 3fR"
-    "R 2XR"
-    "RXXXR",
+    "RRRRRRR"
+    "RRXXXRR"
+    "RRS2XRR"
+    "RR 3fRR"
+    "RR 2XRR"
+    "RRXXXRR"
+    "RRRRRRR",
 
-    "RXXXR"
-    "RS2fR"
-    "R 3XR"
-    "R 1XR"
-    "RXXXR",
+    "RRRRRRR"
+    "RRXXXRR"
+    "RRS2fRR"
+    "RR 3XRR"
+    "RR 1XRR"
+    "RRXXXRR"
+    "RRRRRRR",
 
-    "RXXXR"
-    "R 1XR"
-    "R 3XR"
-    "RS2fR"
-    "RXXXR", // mirror of last one
+    "RRRRRRR"
+    "RRXXXRR"
+    "RRS3fRR"
+    "RR 4fRR"
+    "RR 2XRR"
+    "RRXXXRR"
+    "RRRRRRR",
 
-    "RXXXR"
-    "RS3fR"
-    "R 4fR"
-    "R 2XR"
-    "RXXXR",
+    "RRRRRRR"
+    "RRXXXRR"
+    "RRS3fRR"
+    "RR 5fRR"
+    "RR 3fRR"
+    "RRXXXRR"
+    "RRRRRRR",
 
-    "RXXXR"
-    "R 2XR"
-    "R 4fR"
-    "RS3fR"
-    "RXXXR", // mirror of last one
+    "RRRRRRR"
+    "RRRRRRR"
+    "RRYS1XR"
+    "RRY 2XR"
+    "RR1 2XR"
+    "RRRRRRR"
+    "RRRRRRR",
 
-    "RXXXR"
-    "RS3fR"
-    "R 5fR"
-    "R 3fR"
-    "RXXXR",
+    "RRRRRRR"
+    "RXXXXXR"
+    "RX  2fR"
+    "RX I3XR"
+    "RX23fXR"
+    "RXXfXRR"
+    "RRRRRRR",
 
-    "RRRRR"
-    "RYS1X"
-    "RY 2X"
-    "R1 2X"
-    "RRRRR",
+    "RRRRRRR"
+    "RRXXXRR"
+    "RRX1 RR"
+    "RRX2 RR"
+    "RRXfERR"
+    "RRRRRRR"
+    "RRRRRRR",
 
-    "XXXXX"
-    "X  2f"
-    "X I3X"
-    "X23fX"
-    "XXfXR",
+    "RRRRRRR"
+    "RRRRRRR"
+    "RRXfSRR"
+    "RRX3 RR"
+    "RRX1 RR"
+    "RRRRRRR"
+    "RRRRRRR",
 
-    "RXXXR"
-    "RX1 R"
-    "RX2 R"
-    "RXfER"
-    "RRRRR",
+    "RRRRRRR"
+    "RRRRRRR"
+    "RRXfSRR"
+    "RRX3 RR"
+    "RRX1 RR"
+    "RRRRRRR"
+    "RRRRRRR",
 
-    "RRRRR"
-    "RXfSR"
-    "RX3 R"
-    "RX1 R"
-    "RRRRR",
+    "RRXXXRR"
+    "RRX1 RR"
+    "RRX2 RR"
+    "RRX2SRR"
+    "RRX2 RR"
+    "RRRfRRR"
+    "RRRRRRR",
+
+    "RRRRRRR"
+    "RRRRRRR"
+    "R1122fR"
+    "R   S3R"
+    "RRRR fR"
+    "RRRfRRR"
+    "RRRRRRR",
+
+    "RRRRRRR"
+    "RRRfRRR"
+    "f2223fR"
+    "X   SXR"
+    "RRRRRRR"
+    "RRRfRRR"
+    "RRRRRRR",
 };
 static size_t patterns_len = sizeof(patterns) / sizeof(patterns[0]);
 
-static int8_t rotations[4][25] = {
-    {20, 15, 10, 5, 0, 21, 16, 11, 6, 1, 22, 17, 12, 7, 2, 23, 18, 13, 8, 3, 24, 19, 14, 9, 4},
-    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24},
-    {4, 9, 14, 19, 24, 3, 8, 13, 18, 23, 2, 7, 12, 17, 22, 1, 6, 11, 16, 21, 0, 5, 10, 15, 20},
-    {24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0},
+static int8_t rotations[][sizeof(patterns[0])] = {
+    // normal
+    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+     17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33,
+     34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48},
+    // rot 90
+    {6, 13, 20, 27, 34, 41, 48, 5, 12, 19, 26, 33, 40, 47, 4, 11, 18,
+     25, 32, 39, 46, 3, 10, 17, 24, 31, 38, 45, 2, 9, 16, 23, 30, 37,
+     44, 1, 8, 15, 22, 29, 36, 43, 0, 7, 14, 21, 28, 35, 42},
+    // rot 180
+    {48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32,
+     31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15,
+     14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0},
+    // rot 270
+    {42, 35, 28, 21, 14, 7, 0, 43, 36, 29, 22, 15, 8, 1, 44, 37, 30,
+     23, 16, 9, 2, 45, 38, 31, 24, 17, 10, 3, 46, 39, 32, 25, 18, 11,
+     4, 47, 40, 33, 26, 19, 12, 5, 48, 41, 34, 27, 20, 13, 6},
+    // flip horiz
+    {42, 43, 44, 45, 46, 47, 48, 35, 36, 37, 38, 39, 40, 41, 28, 29, 30,
+     31, 32, 33, 34, 21, 22, 23, 24, 25, 26, 27, 14, 15, 16, 17, 18, 19,
+     20, 7, 8, 9, 10, 11, 12, 13, 0, 1, 2, 3, 4, 5, 6},
+    // flip horiz rot 90
+    {48, 41, 34, 27, 20, 13, 6, 47, 40, 33, 26, 19, 12, 5, 46, 39, 32,
+     25, 18, 11, 4, 45, 38, 31, 24, 17, 10, 3, 44, 37, 30, 23, 16, 9,
+     2, 43, 36, 29, 22, 15, 8, 1, 42, 35, 28, 21, 14, 7, 0},
+    // flip horiz rot 180
+    {6, 5, 4, 3, 2, 1, 0, 13, 12, 11, 10, 9, 8, 7, 20, 19, 18,
+     17, 16, 15, 14, 27, 26, 25, 24, 23, 22, 21, 34, 33, 32, 31, 30, 29,
+     28, 41, 40, 39, 38, 37, 36, 35, 48, 47, 46, 45, 44, 43, 42},
+    // flip horiz rot 270
+    {0, 7, 14, 21, 28, 35, 42, 1, 8, 15, 22, 29, 36, 43, 2, 9, 16,
+     23, 30, 37, 44, 3, 10, 17, 24, 31, 38, 45, 4, 11, 18, 25, 32, 39,
+     46, 5, 12, 19, 26, 33, 40, 47, 6, 13, 20, 27, 34, 41, 48},
 };
+
+static size_t rotations_len = sizeof(rotations) / sizeof(rotations[0]);
 
 struct User
 {
   char **patterns;
+  size_t patterns_len;
   char *revealed_board;
   int num_flags;
   struct Position pos;
@@ -287,7 +356,7 @@ bool CheckForAllMines(struct User *user, int sock)
   {
     for (int j = 0; j < user->config.cols; ++j)
     {
-      for (int p = 0; p < patterns_len * 4; ++p)
+      for (int p = 0; p < user->patterns_len; ++p)
       {
         bool ok = true;
         int8_t should_flag = -1;
@@ -318,7 +387,8 @@ bool CheckForAllMines(struct User *user, int sock)
               ok = false;
             break;
           case 'I':
-            if (user->num_flags != user->config.mines - 1) {
+            if (user->num_flags != user->config.mines - 1)
+            {
               ok = false;
               break;
             }
@@ -508,25 +578,39 @@ void parse_board_message(char *msg, int len, struct User *user)
   memcpy(&user->pos, ptr, sizeof(user->pos));
 }
 
+bool AlreadyExists(char **patterns, int len, char *curr)
+{
+  for (int i = 0; i < len; ++i)
+    if (!memcmp(patterns[i], curr, 49))
+      return true;
+  return false;
+}
+
 void CreatePatterns(struct User *user)
 {
-  size_t pattern_len = strlen(patterns[0]);
+  size_t pattern_len = sizeof(patterns[0]);
   int ind = 0;
-  user->patterns = (char **)malloc(patterns_len * 4 * sizeof(*user->patterns));
+  user->patterns = (char **)malloc(patterns_len * rotations_len * sizeof(*user->patterns));
+  char curr_rotated_pattern[sizeof(patterns[0])];
   for (int i = 0; i < patterns_len; ++i)
   {
     char *curr_pattern = patterns[i];
-    for (int j = 0; j < 4; ++j)
+    for (int j = 0; j < rotations_len; ++j)
     {
       int8_t *curr_rot = rotations[j];
-      user->patterns[ind] = (char *)malloc(pattern_len);
+
       for (int k = 0; k < pattern_len; ++k)
-      {
-        user->patterns[ind][k] = curr_pattern[curr_rot[k]];
-      }
+        curr_rotated_pattern[k] = curr_pattern[curr_rot[k]];
+
+      if (AlreadyExists(user->patterns, ind, curr_rotated_pattern))
+        continue;
+
+      user->patterns[ind] = (char *)malloc(pattern_len);
+      memcpy(user->patterns[ind], curr_rotated_pattern, pattern_len);
       ind++;
     }
   }
+  user->patterns_len = ind;
 }
 
 void Init(struct User *user)
@@ -538,12 +622,12 @@ void Init(struct User *user)
 
   CreatePatterns(user);
 
-  for (int i = 0; i < 5; ++i)
+  for (int i = 0; i < 7; ++i)
   {
-    for (int j = 0; j < 5; ++j)
+    for (int j = 0; j < 7; ++j)
     {
-      cell_with_neighbours[i * 5 + j][0] = i - 2;
-      cell_with_neighbours[i * 5 + j][1] = j - 2;
+      cell_with_neighbours[i * 7 + j][0] = i - 7 / 2;
+      cell_with_neighbours[i * 7 + j][1] = j - 7 / 2;
     }
   }
   user->num_flags = 0;
@@ -552,7 +636,7 @@ void Init(struct User *user)
 void DeInit(struct User *user)
 {
   free(user->revealed_board);
-  for (int i = 0; i < patterns_len * 4; ++i)
+  for (int i = 0; i < user->patterns_len; ++i)
     free(user->patterns[i]);
   free(user->patterns);
 }
@@ -563,7 +647,8 @@ void run_one_game(int sock, struct User *user)
 
   Init(user);
 
-  // for (int i = 0; i < patterns_len * 4; ++i)
+  // printf("user->patterns_len %zu\n", user->patterns_len);
+  // for (int i = 0; i < user->patterns_len; ++i)
   // {
   //   printf("'%s'\n", user->patterns[i]);
   // }
