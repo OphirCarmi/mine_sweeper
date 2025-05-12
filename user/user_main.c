@@ -87,7 +87,7 @@ static char patterns[][49] = {
     "RRXfSRR"
     "RRX3 RR"
     "RRX1 RR"
-    "RRRRRRR"
+    "RRXXXRR"
     "RRRRRRR",
 
     "RRRRRRR"
@@ -95,7 +95,7 @@ static char patterns[][49] = {
     "RRXfSRR"
     "RRX3 RR"
     "RRX1 RR"
-    "RRRRRRR"
+    "RRXXXRR"
     "RRRRRRR",
 
     "RRXXXRR"
@@ -103,23 +103,63 @@ static char patterns[][49] = {
     "RRX2 RR"
     "RRX2SRR"
     "RRX2 RR"
+    "RRXfXRR"
+    "RRRRRRR",
+
+    "RRRRRRR"
+    "XXXXXXR"
+    "X1122fX"
+    "X   S3X"
+    "RRRR fX"
     "RRRfRRR"
     "RRRRRRR",
 
     "RRRRRRR"
-    "RRRRRRR"
-    "R1122fR"
-    "R   S3R"
-    "RRRR fR"
-    "RRRfRRR"
-    "RRRRRRR",
-
-    "RRRRRRR"
-    "RRRfRRR"
+    "XXXfXXR"
     "f2223fR"
-    "X   SXR"
+    "    SXR"
     "RRRRRRR"
-    "RRRfRRR"
+    "RRRRRRR"
+    "RRRRRRR",
+
+    "RRRRXXX"
+    "RRRR 2X"
+    "RRE  3f"
+    "RRf22fX"
+    "RRXXXXR"
+    "RRRRRRR"
+    "RRRRRRR",
+
+    "RRRRRRR"
+    "RXfXRRR"
+    "RX2 RRR"
+    "RX1 RRR"
+    "RXXERRR"
+    "RRRRRRR"
+    "RRRRRRR",
+
+    "RRRRRRR"
+    "RRXX RR"
+    "RRX2 RR"
+    "RRX2 RR"
+    "RRXfERR"
+    "RRRRRRR"
+    "RRRRRRR",
+
+    "RRRRRRR"
+    "RRRRRRR"
+    "RRRfXRR"
+    "RRRX2ER"
+    "RRRX1 R"
+    "RRRX1 R"
+    "RRRRRRR",
+
+    "RRRRRRR"
+    "RRRRRRR"
+    "RRSXfRR"
+    "RR 4XRR"
+    "RR 2fRR"
+    "RRRRRRR"
     "RRRRRRR",
 };
 static size_t patterns_len = sizeof(patterns) / sizeof(patterns[0]);
@@ -361,94 +401,96 @@ bool CheckForAllMines(struct User *user, int sock)
         bool ok = true;
         int8_t should_flag = -1;
         int8_t should_reveal = -1;
-        for (int k = 0; k < num_cell_with_neighbours; ++k)
+        int k = 0;
+        for (int neigh_row_ind = i - 7 / 2; neigh_row_ind < i + 7 / 2 + 1; neigh_row_ind++)
         {
-          int neigh_row_ind = i + cell_with_neighbours[k][0];
-          int neigh_col_ind = j + cell_with_neighbours[k][1];
-          // printf("p %d k %d\n", p, k);
-          // printf("%c\n", user->patterns[p][k]);
-          char neigh_val;
-          switch (user->patterns[p][k])
+          for (int neigh_col_ind = j - 7 / 2; neigh_col_ind < j + 7 / 2 + 1; neigh_col_ind++, ++k)
           {
-          case 'R':
-            break;
-          case 'X':
-            if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
-              break;
-            neigh_val = user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind];
-            if (neigh_val < '0' || neigh_val > '8')
-              ok = false;
-            break;
-          case 'Y':
-            if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
-              break;
-            neigh_val = user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind];
-            if (neigh_val != ' ' && (neigh_val < '0' || neigh_val > '8'))
-              ok = false;
-            break;
-          case 'I':
-            if (user->num_flags != user->config.mines - 1)
+            // printf("p %d k %d\n", p, k);
+            // printf("%c\n", user->patterns[p][k]);
+            char neigh_val;
+            switch (user->patterns[p][k])
             {
-              ok = false;
+            case 'R':
+              break;
+            case 'X':
+              if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
+                break;
+              neigh_val = user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind];
+              if (neigh_val < '0' || neigh_val > '8')
+                ok = false;
+              break;
+            case 'Y':
+              if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
+                break;
+              neigh_val = user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind];
+              if (neigh_val != ' ' && (neigh_val < '0' || neigh_val > '8'))
+                ok = false;
+              break;
+            case 'I':
+              if (user->num_flags != user->config.mines - 1)
+              {
+                ok = false;
+                break;
+              }
+              // FALLTHROUGH
+            case 'S':
+              if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
+              {
+                ok = false;
+                break;
+              }
+              if (user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind] != ' ')
+              {
+                ok = false;
+                break;
+              }
+              should_flag = k;
+              break;
+            case 'E':
+              if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
+              {
+                ok = false;
+                break;
+              }
+              if (user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind] != ' ')
+              {
+                ok = false;
+                break;
+              }
+              should_reveal = k;
+              break;
+            case ' ':
+            // FALLTHROUGH
+            case 'f':
+            // FALLTHROUGH
+            case '1':
+            // FALLTHROUGH
+            case '2':
+            // FALLTHROUGH
+            case '3':
+              // FALLTHROUGH
+            case '4':
+              // FALLTHROUGH
+            case '5':
+              // FALLTHROUGH
+            case '6':
+              // FALLTHROUGH
+            case '7':
+              // FALLTHROUGH
+            case '8':
+              if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
+              {
+                ok = false;
+                break;
+              }
+              if (user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind] != user->patterns[p][k])
+                ok = false;
               break;
             }
-            // FALLTHROUGH
-          case 'S':
-            if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
-            {
-              ok = false;
+            if (!ok)
               break;
-            }
-            if (user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind] != ' ')
-            {
-              ok = false;
-              break;
-            }
-            should_flag = k;
-            break;
-          case 'E':
-            if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
-            {
-              ok = false;
-              break;
-            }
-            if (user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind] != ' ')
-            {
-              ok = false;
-              break;
-            }
-            should_reveal = k;
-            break;
-          case ' ':
-          // FALLTHROUGH
-          case 'f':
-          // FALLTHROUGH
-          case '1':
-          // FALLTHROUGH
-          case '2':
-          // FALLTHROUGH
-          case '3':
-            // FALLTHROUGH
-          case '4':
-            // FALLTHROUGH
-          case '5':
-            // FALLTHROUGH
-          case '6':
-            // FALLTHROUGH
-          case '7':
-            // FALLTHROUGH
-          case '8':
-            if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
-            {
-              ok = false;
-              break;
-            }
-            if (user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind] != user->patterns[p][k])
-              ok = false;
-            break;
           }
-          if (!ok)
-            break;
         }
         if (!ok)
           continue;
