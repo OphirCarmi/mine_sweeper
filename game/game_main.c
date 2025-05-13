@@ -11,7 +11,7 @@
 
 #include "common/common.h"
 
-// #define SHOW
+static bool show = false;
 
 struct Game
 {
@@ -80,7 +80,8 @@ void PlaceMines(struct Game *game)
   free(indices);
 }
 
-void SetColor(struct Game *game, int i, int j, bool red) {
+void SetColor(struct Game *game, int i, int j, bool red)
+{
   if (game->pos.i == i && game->pos.j == j)
   {
     if (red)
@@ -96,7 +97,8 @@ void SetColor(struct Game *game, int i, int j, bool red) {
 
 void PrintCellValue(struct Game *game, int i, int j, bool red, bool board_changed)
 {
-  if (board_changed) SetColor(game, i, j, red);
+  if (board_changed)
+    SetColor(game, i, j, red);
   printw(" ");
   SetColor(game, i, j, red);
 
@@ -127,7 +129,8 @@ void PrintCellValue(struct Game *game, int i, int j, bool red, bool board_change
     }
   }
   attroff(COLOR_PAIR(1));
-  if (board_changed) SetColor(game, i, j, red);
+  if (board_changed)
+    SetColor(game, i, j, red);
   printw(" ");
   attroff(COLOR_PAIR(1));
 }
@@ -224,16 +227,17 @@ void RevealZeroes(struct Game *game)
       *ptr++ = neigh_col_ind;
       *ptr++ = game->hidden_board[neigh_row_ind][neigh_col_ind] + '0';
 
-#ifdef SHOW
-      DrawBoard(game, false, false);
-      refresh();
-      usleep(50000);
-#endif // SHOW
+      if (show)
+      {
+        DrawBoard(game, false, false);
+        refresh();
+        usleep(50000);
+      }
 
       if (game->hidden_board[neigh_row_ind][neigh_col_ind] != 0)
         continue;
 
-      np = (struct entry*)malloc(sizeof(struct entry)); /* Insert at the head. */
+      np = (struct entry *)malloc(sizeof(struct entry)); /* Insert at the head. */
       np->row_ind = neigh_row_ind;
       np->col_ind = neigh_col_ind;
       LIST_INSERT_HEAD(&head, np, entries);
@@ -257,12 +261,13 @@ bool RevealLocation(struct Game *game)
     game->changed_cells[1] = game->pos.j;
     game->changed_cells[2] = '*';
     game->changed_cells_len = 1;
-#ifdef SHOW
-    DrawBoard(game, true, true);
-    printw("\n\nBOOOOOOOOOM!!!! GAME OVER!\n");
-    refresh();
-    sleep(3);
-#endif // SHOW
+    if (show)
+    {
+      DrawBoard(game, true, true);
+      printw("\n\nBOOOOOOOOOM!!!! GAME OVER!\n");
+      refresh();
+      // sleep(3);
+    }
     return false;
   default:
     game->is_revealed_board[game->pos.i][game->pos.j] = true;
@@ -307,14 +312,15 @@ bool CheckWin(struct Game *game)
       game->is_revealed_board[i][j] = true;
     }
   }
-#ifdef SHOW
-  DrawBoard(game, false, false);
+  if (show)
+  {
+    DrawBoard(game, false, false);
 
-  printw("\nYOU WON!!!\n");
-  refresh();
+    printw("\nYOU WON!!!\n");
+    refresh();
 
-  sleep(3);
-#endif // SHOW
+    // sleep(3);
+  }
   return true;
 }
 
@@ -379,7 +385,8 @@ void write_revealed_board(struct Game *game, int sock)
   int tot_size = cell_size + sizeof(game->pos);
   char *mem = (char *)malloc(tot_size);
   char *ptr = mem;
-  if (cell_size) {
+  if (cell_size)
+  {
     memcpy(ptr, game->changed_cells, cell_size);
     ptr += cell_size;
   }
@@ -406,18 +413,18 @@ int run_one_game(int sock, struct Game *game)
   for (int iter = 0;; ++iter)
   {
     // printf("iter %d\n", iter);
-#ifdef SHOW
-    DrawBoard(game, false, board_changed);
+    if (show)
+    {
+      DrawBoard(game, false, board_changed);
 
-    // נבקש קלט מהמשתמש/ת
-    printw("\nquit anytime with \"q\"\n\n");
-    printw("use 'w'=up, 'd'=right, 'x'=down, 'a'=left to move\n");
-    printw("use space bar to reveal\n");
-    printw("use `f` to flag an existing mine\n");
-    refresh();
-    usleep(1000);
-#endif // SHOW
-
+      // נבקש קלט מהמשתמש/ת
+      printw("\nquit anytime with \"q\"\n\n");
+      printw("use 'w'=up, 'd'=right, 'x'=down, 'a'=left to move\n");
+      printw("use space bar to reveal\n");
+      printw("use `f` to flag an existing mine\n");
+      refresh();
+      usleep(100000);
+    }
     char c;
     int8_t msg_type;
     if (sock >= 0)
@@ -552,10 +559,12 @@ bool GetConfigFromUser(struct Game *game)
     case '4':
       printw("enter num rows: ");
       scanw("%d", &game->config.rows);
-      if (game->config.rows > INT8_MAX) should_continue = true;
+      if (game->config.rows > INT8_MAX)
+        should_continue = true;
       printw("enter num cols: ");
       scanw("%d", &game->config.cols);
-      if (game->config.cols > INT8_MAX) should_continue = true;
+      if (game->config.cols > INT8_MAX)
+        should_continue = true;
       printw("enter num mines: ");
       scanw("%d", &game->config.mines);
       break;
@@ -578,7 +587,6 @@ void run_game(int sock)
 {
   int ch;
 
-#ifdef SHOW
   setlocale(LC_ALL, "");
 
   /* Curses Initialisations */
@@ -590,7 +598,6 @@ void run_game(int sock)
   init_pair(3, -1, COLOR_RED);
   raw();
   keypad(stdscr, TRUE);
-#endif  // SHOW
 
   // srand(time(NULL));
 
@@ -599,6 +606,9 @@ void run_game(int sock)
   for (int g = 0;; ++g)
   {
     // printf("g %d\n", g);
+
+    // if (g == 105)
+    //   show = true;
 
     if (sock >= 0)
     {
@@ -620,9 +630,7 @@ void run_game(int sock)
       break;
   }
 
-#ifdef SHOW
   endwin();
-#endif  // SHOW
 }
 
 void CreateSocket(int *server_fd, int *new_socket)
@@ -630,7 +638,6 @@ void CreateSocket(int *server_fd, int *new_socket)
   struct sockaddr_in address;
   int opt = 1;
   int addrlen = sizeof(address);
-  char buffer[BUFFER_SIZE] = {0};
 
   // Creating socket file descriptor
   if ((*server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)

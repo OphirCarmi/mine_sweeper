@@ -314,6 +314,7 @@ bool CheckForAllMines(struct User *user, int sock)
         send_message(sock, 1, &c, -1);
         if (c == 'f')
           user->num_flags++;
+        // printf("c %c\n", c);
         // printf("p %d\n", p);
 
         // for (int ii = 0; ii < 7; ii++)
@@ -528,11 +529,11 @@ void run_one_game(int sock, struct User *user)
       break;
     case 2:
       end_game = msg[0] ? Win : Lose;
-      if (random_reveal && end_game == Lose)
-      {
-        printf("lost after not random reveal\n");
-        getchar();
-      }
+      // if (!random_reveal && end_game == Lose)
+      // {
+      //   printf("lost after random reveal\n");
+      //   exit(-1);
+      // }
       break;
     }
 
