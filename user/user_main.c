@@ -585,8 +585,10 @@ void run_user(int sock, struct User *user)
   for (int i = 0; i < 10000; ++i)
   {
     if (i % 100 == 1)
+    {
       printf("\r %d%%", i / 100);
-    fflush(stdout);
+      fflush(stdout);
+    }
     send_message(sock, 3, &user->config, -1);
 
     run_one_game(sock, user);
