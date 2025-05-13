@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 
 #include "common/common.h"
+#include "patterns.h"
 
 // 'X' is out of board or number
 // 'Y' is out of board or number or space
@@ -16,190 +17,6 @@
 static int8_t cell_with_neighbours[49][2];
 
 static int8_t num_cell_with_neighbours = sizeof(cell_with_neighbours) / sizeof(cell_with_neighbours[0]);
-
-static char patterns[][49] = {
-    "RRRRRRR"
-    "RRRRRRR"
-    "RRXXXRR"
-    "RR121RR"
-    "RRS  RR"
-    "RRRRRRR"
-    "RRRRRRR",
-
-    "RRRRRRR"
-    "RRXXXRR"
-    "RRS2XRR"
-    "RR 3fRR"
-    "RR 2XRR"
-    "RRXXXRR"
-    "RRRRRRR",
-
-    "RRRRRRR"
-    "RRXXXRR"
-    "RRS2fRR"
-    "RR 3XRR"
-    "RR 1XRR"
-    "RRXXXRR"
-    "RRRRRRR",
-
-    "RRRRRRR"
-    "RRXXXRR"
-    "RRS3fRR"
-    "RR 4fRR"
-    "RR 2XRR"
-    "RRXXXRR"
-    "RRRRRRR",
-
-    "RRRRRRR"
-    "RRXXXRR"
-    "RRS3fRR"
-    "RR 5fRR"
-    "RR 3fRR"
-    "RRXXXRR"
-    "RRRRRRR",
-
-    "RRRRRRR"
-    "RRRRRRR"
-    "RRYS1XR"
-    "RRY 2XR"
-    "RR1 2XR"
-    "RRRRRRR"
-    "RRRRRRR",
-
-    "RRRRRRR"
-    "RXXXXXR"
-    "RX  2fR"
-    "RX I3XR"
-    "RX23fXR"
-    "RXXfXRR"
-    "RRRRRRR",
-
-    "RRRRRRR"
-    "RRXXXRR"
-    "RRX1 RR"
-    "RRX2 RR"
-    "RRXfERR"
-    "RRRRRRR"
-    "RRRRRRR",
-
-    "RRRRRRR"
-    "RRRRRRR"
-    "RRXfSRR"
-    "RRX3 RR"
-    "RRX1 RR"
-    "RRXXXRR"
-    "RRRRRRR",
-
-    "RRRRRRR"
-    "RRRRRRR"
-    "RRXfSRR"
-    "RRX3 RR"
-    "RRX1 RR"
-    "RRXXXRR"
-    "RRRRRRR",
-
-    "RRXXXRR"
-    "RRX1 RR"
-    "RRX2 RR"
-    "RRX2SRR"
-    "RRX2 RR"
-    "RRXfXRR"
-    "RRRRRRR",
-
-    "RRRRRRR"
-    "XXXXXXR"
-    "X1122fX"
-    "X   S3X"
-    "RRRR fX"
-    "RRRfRRR"
-    "RRRRRRR",
-
-    "RRRRRRR"
-    "XXXfXXR"
-    "f2223fR"
-    "    SXR"
-    "RRRRRRR"
-    "RRRRRRR"
-    "RRRRRRR",
-
-    "RRRRXXX"
-    "RRRR 2X"
-    "RRE  3f"
-    "RRf22fX"
-    "RRXXXXR"
-    "RRRRRRR"
-    "RRRRRRR",
-
-    "RRRRRRR"
-    "RXfXRRR"
-    "RX2 RRR"
-    "RX1 RRR"
-    "RXXERRR"
-    "RRRRRRR"
-    "RRRRRRR",
-
-    "RRRRRRR"
-    "RRXX RR"
-    "RRX2 RR"
-    "RRX2 RR"
-    "RRXfERR"
-    "RRRRRRR"
-    "RRRRRRR",
-
-    "RRRRRRR"
-    "RRRRRRR"
-    "RRRfXRR"
-    "RRRX2ER"
-    "RRRX1 R"
-    "RRRX1 R"
-    "RRRRRRR",
-
-    "RRRRRRR"
-    "RRRRRRR"
-    "RRSXfRR"
-    "RR 4XRR"
-    "RR 2fRR"
-    "RRRRRRR"
-    "RRRRRRR",
-};
-static size_t patterns_len = sizeof(patterns) / sizeof(patterns[0]);
-
-static int8_t rotations[][sizeof(patterns[0])] = {
-    // normal
-    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
-     17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33,
-     34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48},
-    // rot 90
-    {6, 13, 20, 27, 34, 41, 48, 5, 12, 19, 26, 33, 40, 47, 4, 11, 18,
-     25, 32, 39, 46, 3, 10, 17, 24, 31, 38, 45, 2, 9, 16, 23, 30, 37,
-     44, 1, 8, 15, 22, 29, 36, 43, 0, 7, 14, 21, 28, 35, 42},
-    // rot 180
-    {48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32,
-     31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15,
-     14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0},
-    // rot 270
-    {42, 35, 28, 21, 14, 7, 0, 43, 36, 29, 22, 15, 8, 1, 44, 37, 30,
-     23, 16, 9, 2, 45, 38, 31, 24, 17, 10, 3, 46, 39, 32, 25, 18, 11,
-     4, 47, 40, 33, 26, 19, 12, 5, 48, 41, 34, 27, 20, 13, 6},
-    // flip horiz
-    {42, 43, 44, 45, 46, 47, 48, 35, 36, 37, 38, 39, 40, 41, 28, 29, 30,
-     31, 32, 33, 34, 21, 22, 23, 24, 25, 26, 27, 14, 15, 16, 17, 18, 19,
-     20, 7, 8, 9, 10, 11, 12, 13, 0, 1, 2, 3, 4, 5, 6},
-    // flip horiz rot 90
-    {48, 41, 34, 27, 20, 13, 6, 47, 40, 33, 26, 19, 12, 5, 46, 39, 32,
-     25, 18, 11, 4, 45, 38, 31, 24, 17, 10, 3, 44, 37, 30, 23, 16, 9,
-     2, 43, 36, 29, 22, 15, 8, 1, 42, 35, 28, 21, 14, 7, 0},
-    // flip horiz rot 180
-    {6, 5, 4, 3, 2, 1, 0, 13, 12, 11, 10, 9, 8, 7, 20, 19, 18,
-     17, 16, 15, 14, 27, 26, 25, 24, 23, 22, 21, 34, 33, 32, 31, 30, 29,
-     28, 41, 40, 39, 38, 37, 36, 35, 48, 47, 46, 45, 44, 43, 42},
-    // flip horiz rot 270
-    {0, 7, 14, 21, 28, 35, 42, 1, 8, 15, 22, 29, 36, 43, 2, 9, 16,
-     23, 30, 37, 44, 3, 10, 17, 24, 31, 38, 45, 4, 11, 18, 25, 32, 39,
-     46, 5, 12, 19, 26, 33, 40, 47, 6, 13, 20, 27, 34, 41, 48},
-};
-
-static size_t rotations_len = sizeof(rotations) / sizeof(rotations[0]);
 
 struct User
 {
@@ -217,34 +34,22 @@ void MoveByDiff(int sock, int diff_i, int diff_j)
   {
     char c = 'x';
     send_message(sock, 1, &c, -1);
-#ifdef SHOW
-    usleep(100000);
-#endif // SHOW
   }
   for (int m = 0; m < -diff_i; ++m)
   {
     char c = 'w';
     send_message(sock, 1, &c, -1);
-#ifdef SHOW
-    usleep(100000);
-#endif // SHOW
   }
 
   for (int m = 0; m < diff_j; ++m)
   {
     char c = 'd';
     send_message(sock, 1, &c, -1);
-#ifdef SHOW
-    usleep(100000);
-#endif // SHOW
   }
   for (int m = 0; m < -diff_j; ++m)
   {
     char c = 'a';
     send_message(sock, 1, &c, -1);
-#ifdef SHOW
-    usleep(100000);
-#endif // SHOW
   }
 }
 
@@ -312,9 +117,6 @@ bool CheckForObviousMines(struct User *user, int sock)
 
             char c = ' ';
             send_message(sock, 1, &c, -1);
-#ifdef SHOW
-            usleep(100000);
-#endif // SHOW
             return true;
           }
         }
@@ -376,10 +178,6 @@ bool CheckForObviousMines(struct User *user, int sock)
           char c = 'f';
           send_message(sock, 1, &c, -1);
           user->num_flags++;
-#ifdef SHOW
-          usleep(100000);
-#endif // SHOW
-
           return true;
         }
       }
@@ -516,10 +314,16 @@ bool CheckForAllMines(struct User *user, int sock)
         send_message(sock, 1, &c, -1);
         if (c == 'f')
           user->num_flags++;
-#ifdef SHOW
-        usleep(100000);
-#endif // SHOW
+        // printf("p %d\n", p);
 
+        // for (int ii = 0; ii < 7; ii++)
+        // {
+        //   for (int jj = 0; jj < 7; jj++)
+        //   {
+        //     printf("%c", user->patterns[p][ii * 7 + jj]);
+        //   }
+        //   printf("\n");
+        // }
         return true;
       }
     }
@@ -530,7 +334,11 @@ bool CheckForAllMines(struct User *user, int sock)
 bool CheckForSolution(struct User *user, int sock)
 {
   if (CheckForObviousMines(user, sock))
+  {
+    // printf("obvious\n");
     return true;
+  }
+  // printf("all\n");
   return CheckForAllMines(user, sock);
 }
 
@@ -633,7 +441,7 @@ void CreatePatterns(struct User *user)
   size_t pattern_len = sizeof(patterns[0]);
   int ind = 0;
   user->patterns = (char **)malloc(patterns_len * rotations_len * sizeof(*user->patterns));
-  char curr_rotated_pattern[sizeof(patterns[0])];
+  char curr_rotated_pattern[sizeof(patterns[0])] = {0};
   for (int i = 0; i < patterns_len; ++i)
   {
     char *curr_pattern = patterns[i];
@@ -647,7 +455,7 @@ void CreatePatterns(struct User *user)
       if (AlreadyExists(user->patterns, ind, curr_rotated_pattern))
         continue;
 
-      user->patterns[ind] = (char *)malloc(pattern_len);
+      user->patterns[ind] = (char *)calloc(pattern_len, 1);
       memcpy(user->patterns[ind], curr_rotated_pattern, pattern_len);
       ind++;
     }
@@ -699,6 +507,8 @@ void run_one_game(int sock, struct User *user)
 
   char *msg = (char *)malloc(num_cells * sizeof(struct Cell) + sizeof(user->pos));
 
+  bool random_reveal = false;
+
   for (int iter = 0;; ++iter)
   {
     int8_t msg_type;
@@ -718,6 +528,11 @@ void run_one_game(int sock, struct User *user)
       break;
     case 2:
       end_game = msg[0] ? Win : Lose;
+      if (random_reveal && end_game == Lose)
+      {
+        printf("lost after not random reveal\n");
+        getchar();
+      }
       break;
     }
 
@@ -749,10 +564,14 @@ void run_one_game(int sock, struct User *user)
     // printf("-\n");
 
     if (CheckForSolution(user, sock))
+    {
+      random_reveal = false;
       continue;
+    }
 
     // printf("revealing random %d\n", iter);
     // getchar();
+    random_reveal = true;
     RevealRandomLocation(user, sock);
   }
 
@@ -764,6 +583,9 @@ void run_user(int sock, struct User *user)
 {
   for (int i = 0; i < 10000; ++i)
   {
+    if (i % 100 == 1)
+      printf("\r %d%%", i / 100);
+    fflush(stdout);
     send_message(sock, 3, &user->config, -1);
 
     run_one_game(sock, user);

@@ -11,7 +11,7 @@
 
 #include "common/common.h"
 
-#define BUFFER_SIZE 1024
+// #define SHOW
 
 struct Game
 {
@@ -415,6 +415,7 @@ int run_one_game(int sock, struct Game *game)
     printw("use space bar to reveal\n");
     printw("use `f` to flag an existing mine\n");
     refresh();
+    usleep(1000);
 #endif // SHOW
 
     char c;
