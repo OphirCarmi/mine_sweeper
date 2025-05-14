@@ -266,7 +266,7 @@ bool RevealLocation(struct Game *game)
       DrawBoard(game, true, true);
       printw("\n\nBOOOOOOOOOM!!!! GAME OVER!\n");
       refresh();
-      // sleep(3);
+      sleep(2);
     }
     return false;
   default:
@@ -319,7 +319,7 @@ bool CheckWin(struct Game *game)
     printw("\nYOU WON!!!\n");
     refresh();
 
-    // sleep(3);
+    sleep(2);
   }
   return true;
 }

@@ -188,8 +188,7 @@ bool CheckForObviousMines(struct User *user, int sock)
 
 bool CheckForAllMines(struct User *user, int sock)
 {
-  // return false;
-  // search for 1,2,1 horizontally
+  int possible_empty[49];
   for (int i = 0; i < user->config.rows; ++i)
   {
     for (int j = 0; j < user->config.cols; ++j)
