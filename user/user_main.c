@@ -8,12 +8,6 @@
 #include "common/common.h"
 #include "patterns.h"
 
-// 'X' is out of board or number
-// 'Y' is out of board or number or space
-// 'S' is where we should flag
-// 'E' is where we should reveal
-// 'R' can be anything
-
 static int8_t cell_with_neighbours[49][2];
 
 static int8_t num_cell_with_neighbours = sizeof(cell_with_neighbours) / sizeof(cell_with_neighbours[0]);
@@ -293,10 +287,14 @@ bool CheckForAllMines(struct User *user, int sock)
           continue;
 
         int ind = should_flag;
-        if (ind < 0) {
-          if (possible_empty_len == 1) {
+        if (ind < 0)
+        {
+          if (possible_empty_len == 1)
+          {
             ind = possible_empty[0];
-          } else {
+          }
+          else
+          {
             ind = possible_empty[rand() % possible_empty_len];
           }
         }
@@ -498,7 +496,7 @@ void DeInit(struct User *user)
   free(user->patterns);
 }
 
-void run_one_game(int sock, struct User *user)
+void run_one_game(int sock, struct User *user, int game_i)
 {
   int num_cells = user->config.rows * user->config.cols;
 
@@ -576,8 +574,11 @@ void run_one_game(int sock, struct User *user)
       continue;
     }
 
-    // printf("revealing random %d\n", iter);
-    // getchar();
+    // if (game_i == 5)
+    // {
+    //   printf("revealing random %d\n", iter);
+    //   getchar();
+    // }
     random_reveal = true;
     RevealRandomLocation(user, sock);
   }
@@ -597,7 +598,7 @@ void run_user(int sock, struct User *user)
     }
     send_message(sock, 3, &user->config, -1);
 
-    run_one_game(sock, user);
+    run_one_game(sock, user, i);
   }
 
   char c = 'q';

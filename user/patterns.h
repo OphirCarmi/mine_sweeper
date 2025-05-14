@@ -4,6 +4,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// 'X' is out of board or number
+// 'Y' is out of board or number or space
+// 'S' is where we should flag
+// 'E' is where we should reveal
+// 'R' can be anything
+
 static char patterns[][50] = {
     "RRRRRRR"
     "RRRRRRR"
@@ -163,6 +169,38 @@ static char patterns[][50] = {
     "X111XRR"
     "X  E RR"
     "RRRRRRR"
+    "RRRRRRR",
+
+    "RRRRRRR"
+    "RRfXfRR"
+    "RR 4XRR"
+    "RR 2fRR"
+    "RRE2XRR"
+    "RRYXXRR"
+    "RRRRRRR",
+
+    "RRRRRRR"
+    "RRRRRRR"
+    "RXfSRRR"
+    "RX3 RRR"
+    "RX1 RRR"
+    "RXXYRRR"
+    "RRRRRRR",
+
+    "RRRRRRR"
+    "RRRRRRR"
+    "RXffRRR"
+    "RX3 RRR"
+    "RX1 RRR"
+    "RXXERRR"
+    "RRRRRRR",
+
+    "RRRRRRR"
+    "RRRRRRR"
+    "RffXRRR"
+    "RX3 RRR"
+    "RX1 RRR"
+    "RXXERRR"
     "RRRRRRR",
 
     // "RRRRRRR"
