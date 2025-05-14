@@ -197,7 +197,7 @@ bool CheckForAllMines(struct User *user, int sock)
       {
         bool ok = true;
         int8_t should_flag = -1;
-        int8_t should_reveal = -1;
+        int possible_empty_len = 0;
         int k = 0;
         for (int neigh_row_ind = i - 7 / 2; neigh_row_ind < i + 7 / 2 + 1; neigh_row_ind++)
         {
@@ -255,7 +255,7 @@ bool CheckForAllMines(struct User *user, int sock)
                 ok = false;
                 break;
               }
-              should_reveal = k;
+              possible_empty[possible_empty_len++] = k;
               break;
             case ' ':
             // FALLTHROUGH
@@ -292,7 +292,14 @@ bool CheckForAllMines(struct User *user, int sock)
         if (!ok)
           continue;
 
-        int ind = should_flag >= 0 ? should_flag : should_reveal;
+        int ind = should_flag;
+        if (ind < 0) {
+          if (possible_empty_len == 1) {
+            ind = possible_empty[0];
+          } else {
+            ind = possible_empty[rand() % possible_empty_len];
+          }
+        }
 
         int neigh_row_ind = i + cell_with_neighbours[ind][0];
         int neigh_col_ind = j + cell_with_neighbours[ind][1];
@@ -528,11 +535,11 @@ void run_one_game(int sock, struct User *user)
       break;
     case 2:
       end_game = msg[0] ? Win : Lose;
-      // if (!random_reveal && end_game == Lose)
-      // {
-      //   printf("lost after random reveal\n");
-      //   exit(-1);
-      // }
+      if (!random_reveal && end_game == Lose)
+      {
+        printf("lost after random reveal\n");
+        exit(-1);
+      }
       break;
     }
 

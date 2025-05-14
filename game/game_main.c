@@ -266,7 +266,7 @@ bool RevealLocation(struct Game *game)
       DrawBoard(game, true, true);
       printw("\n\nBOOOOOOOOOM!!!! GAME OVER!\n");
       refresh();
-      sleep(2);
+      sleep(1);
     }
     return false;
   default:
@@ -319,7 +319,7 @@ bool CheckWin(struct Game *game)
     printw("\nYOU WON!!!\n");
     refresh();
 
-    sleep(2);
+    sleep(1);
   }
   return true;
 }
@@ -683,6 +683,8 @@ void CreateSocket(int *server_fd, int *new_socket)
 int main(int argc, char *argv[])
 {
   bool should_create_socket = argc > 1 && !strcmp(argv[1], "socket");
+
+  show = argc > 2 && !strcmp(argv[2], "show");
 
   int server_fd, new_socket = -1;
   if (should_create_socket)
