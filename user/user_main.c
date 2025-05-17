@@ -627,8 +627,12 @@ int main(int argc, char *argv[])
     user.config.cols = 30;
     user.config.mines = 99;
     break;
+  case '4':
+    user.config.rows = 3;
+    user.config.cols = 3;
+    user.config.mines = 3;
+    break;
   }
-
   int sock = 0;
   struct sockaddr_in serv_addr;
 

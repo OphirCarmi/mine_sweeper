@@ -28,11 +28,11 @@ struct Game
   struct GameConfig config;
 };
 
-void PlaceMines(struct Game *game)
+void GenerateRandomMines(struct Game *game, int **indices)
 {
   int num_cells = game->config.rows * game->config.cols;
-  int *indices = (int *)malloc(sizeof(*indices) * (num_cells - 1));
-  int *ptr = indices;
+  *indices = (int *)malloc(sizeof(*indices) * (num_cells - 1));
+  int *ptr = *indices;
   for (int i = 0; i < num_cells; ++i)
   {
     if (i / game->config.cols == game->pos.i && i % game->config.cols == game->pos.j)
@@ -43,11 +43,17 @@ void PlaceMines(struct Game *game)
   for (int i = 0; i < game->config.mines; ++i)
   {
     int ind = i + rand() % (num_cells - 1 - i);
-    int temp = indices[ind];
-    indices[ind] = indices[i];
-    indices[i] = temp;
+    int temp = (*indices)[ind];
+    (*indices)[ind] = (*indices)[i];
+    (*indices)[i] = temp;
   }
+}
 
+void PlaceMines(struct Game *game, int *indices_from_file)
+{
+  int *indices = indices_from_file;
+  if (!indices)
+    GenerateRandomMines(game, &indices);
   for (int i = 0; i < game->config.mines; ++i)
   {
     int ind = indices[i];
@@ -397,121 +403,6 @@ void write_revealed_board(struct Game *game, int sock)
   free(mem);
 }
 
-int run_one_game(int sock, struct Game *game)
-{
-  Init(game);
-  write_revealed_board(game, sock);
-
-  bool should_exit = false;
-
-  bool win = false;
-
-  bool first_move = true;
-
-  bool board_changed = false;
-
-  for (int iter = 0;; ++iter)
-  {
-    // printf("iter %d\n", iter);
-    if (show)
-    {
-      DrawBoard(game, false, board_changed);
-
-      // נבקש קלט מהמשתמש/ת
-      printw("\nquit anytime with \"q\"\n\n");
-      printw("use 'w'=up, 'd'=right, 'x'=down, 'a'=left to move\n");
-      printw("use space bar to reveal\n");
-      printw("use `f` to flag an existing mine\n");
-      refresh();
-      usleep(100000);
-    }
-    char c;
-    int8_t msg_type;
-    if (sock >= 0)
-    {
-      if (!get_message(sock, &msg_type, &c, NULL))
-      {
-        usleep(10);
-        continue;
-      }
-    }
-    else
-    {
-      c = getch();
-    }
-
-    // printf("c '%c'\n", c);
-
-    board_changed = false;
-    bool lose = false;
-    int curr;
-    switch (c)
-    {
-    case 'q':
-      should_exit = true;
-      break;
-    case 'w': // up
-      curr = game->pos.i - 1;
-      if (curr >= 0)
-        game->pos.i = curr;
-      break;
-    case 'x': // down
-      curr = game->pos.i + 1;
-      if (curr < game->config.rows)
-        game->pos.i = curr;
-      break;
-    case 'a': // left
-      curr = game->pos.j - 1;
-      if (curr >= 0)
-        game->pos.j = curr;
-      break;
-    case 'd': // right
-      curr = game->pos.j + 1;
-      if (curr < game->config.cols)
-        game->pos.j = curr;
-      break;
-    case ' ':
-      if (first_move)
-      {
-        PlaceMines(game);
-        first_move = false;
-      }
-      lose = !RevealLocation(game);
-      board_changed = true;
-      break;
-    case 'f':
-      game->is_flagged_board[game->pos.i][game->pos.j] = !game->is_flagged_board[game->pos.i][game->pos.j];
-      game->changed_cells[0] = game->pos.i;
-      game->changed_cells[1] = game->pos.j;
-      game->changed_cells[2] = game->is_flagged_board[game->pos.i][game->pos.j] ? 'f' : ' ';
-      game->changed_cells_len = 1;
-      board_changed = true;
-      break;
-    }
-
-    if (should_exit)
-      break;
-
-    // נבדוק האם המשתמש/ת ניצח, כלומר סיימ/ה לחשוף את כל התאים שאינם מוקשים
-    win = CheckWin(game);
-    if (lose || win)
-    {
-      send_message(sock, 2, &win, -1);
-      break;
-    }
-
-    if (board_changed)
-      write_revealed_board(game, sock);
-  }
-
-  DeInit(game);
-
-  if (should_exit)
-    return -1;
-
-  return win;
-}
-
 bool GetConfigFromSock(struct Game *game, int sock, bool *should_continue)
 {
   char msg[sizeof(game->config)];
@@ -529,6 +420,50 @@ bool GetConfigFromSock(struct Game *game, int sock, bool *should_continue)
   memcpy(&game->config, msg, sizeof(game->config));
 
   return false;
+}
+
+void parse_game_from_file(const char *game_file, struct Game *game, int **indices)
+{
+  FILE *f = fopen(game_file, "r");
+
+  size_t len = 0;
+  ssize_t read;
+
+  if (f == NULL)
+    exit(EXIT_FAILURE);
+
+  int rows,cols;
+  read = fscanf(f, "%dx%d", &rows, &cols);
+  if (read != 2 || rows <= 0 || rows > 127 || cols <= 0 || cols > 127)
+  {
+    printf("failed to read config\n");
+    exit(-1);
+  }
+
+  game->config.rows = rows;
+  game->config.cols = cols;
+
+  long curr = ftell(f);
+
+  game->config.mines = 0;
+  int i,j;
+  while ((read = fscanf(f, "%d,%d", &i, &j)) == 2)
+  {
+    game->config.mines++;
+  }
+
+  *indices = (int *)malloc(game->config.mines * sizeof(*indices));
+
+  fseek(f, curr, SEEK_SET);
+
+  int k = 0;
+  while ((read = fscanf(f, "%d,%d", &i, &j)) == 2)
+  {
+    if (i < 0 || i > 127 || j < 0 || j > 127) exit(-1);
+    (*indices)[k++] = i * game->config.cols + j;
+  }
+
+  fclose(f);
 }
 
 bool GetConfigFromUser(struct Game *game)
@@ -583,7 +518,156 @@ bool GetConfigFromUser(struct Game *game)
   return should_exit;
 }
 
-void run_game(int sock)
+int GetConfig(int sock, struct Game *game, const char *game_file_path, int **indices)
+{
+  if (game_file_path)
+  {
+    parse_game_from_file(game_file_path, game, indices);
+    return 0;
+  }
+  if (sock >= 0)
+  {
+    bool should_continue = false;
+    if (GetConfigFromSock(game, sock, &should_continue))
+    {
+      return 1;
+    }
+    if (should_continue)
+    {
+      return 2;
+    }
+  }
+  else
+  {
+    if (GetConfigFromUser(game))
+    {
+      return 1;
+    }
+    noecho();
+  }
+  return 0;
+}
+
+int run_one_game(int sock, const char *game_file_path)
+{
+  struct Game game;
+
+  int *indices = NULL;
+  int config_ret = GetConfig(sock, &game, game_file_path, &indices);
+  if (config_ret)
+    return config_ret;
+
+  Init(&game);
+  write_revealed_board(&game, sock);
+
+  bool should_exit = false;
+
+  bool first_move = true;
+
+  bool board_changed = false;
+
+  for (int iter = 0;; ++iter)
+  {
+    // printf("iter %d\n", iter);
+    if (show)
+    {
+      DrawBoard(&game, false, board_changed);
+
+      // נבקש קלט מהמשתמש/ת
+      printw("\nquit anytime with \"q\"\n\n");
+      printw("use 'w'=up, 'd'=right, 'x'=down, 'a'=left to move\n");
+      printw("use space bar to reveal\n");
+      printw("use `f` to flag an existing mine\n");
+      refresh();
+      usleep(100000);
+    }
+    char c;
+    int8_t msg_type;
+    if (sock >= 0)
+    {
+      if (!get_message(sock, &msg_type, &c, NULL))
+      {
+        usleep(10);
+        continue;
+      }
+    }
+    else
+    {
+      c = getch();
+    }
+
+    // printf("c '%c'\n", c);
+
+    board_changed = false;
+    bool lose = false;
+    int curr;
+    switch (c)
+    {
+    case 'q':
+      should_exit = true;
+      break;
+    case 'w': // up
+      curr = game.pos.i - 1;
+      if (curr >= 0)
+        game.pos.i = curr;
+      break;
+    case 'x': // down
+      curr = game.pos.i + 1;
+      if (curr < game.config.rows)
+        game.pos.i = curr;
+      break;
+    case 'a': // left
+      curr = game.pos.j - 1;
+      if (curr >= 0)
+        game.pos.j = curr;
+      break;
+    case 'd': // right
+      curr = game.pos.j + 1;
+      if (curr < game.config.cols)
+        game.pos.j = curr;
+      break;
+    case ' ':
+      if (first_move)
+      {
+        PlaceMines(&game, indices);
+        first_move = false;
+      }
+      lose = !RevealLocation(&game);
+      board_changed = true;
+      break;
+    case 'f':
+      game.is_flagged_board[game.pos.i][game.pos.j] = !game.is_flagged_board[game.pos.i][game.pos.j];
+      game.changed_cells[0] = game.pos.i;
+      game.changed_cells[1] = game.pos.j;
+      game.changed_cells[2] = game.is_flagged_board[game.pos.i][game.pos.j] ? 'f' : ' ';
+      game.changed_cells_len = 1;
+      board_changed = true;
+      break;
+    }
+
+    if (should_exit)
+      break;
+
+    bool win = CheckWin(&game);
+    if (lose || win)
+    {
+      send_message(sock, 2, &win, -1);
+      break;
+    }
+
+    if (board_changed)
+      write_revealed_board(&game, sock);
+  }
+
+  DeInit(&game);
+
+  if (should_exit)
+    return -1;
+
+  return 0;
+}
+
+void run_game(int sock, const char *game_file_path)
 {
   int ch;
 
@@ -601,31 +685,13 @@ void run_game(int sock)
 
   // srand(time(NULL));
 
-  struct Game game;
-
   for (int g = 0;; ++g)
   {
     // printf("g %d\n", g);
 
-    // if (g == 105)
-    //   show = true;
-
-    if (sock >= 0)
-    {
-      bool should_continue = false;
-      if (GetConfigFromSock(&game, sock, &should_continue))
-        break;
-      if (should_continue)
-        continue;
-    }
-    else
-    {
-      if (GetConfigFromUser(&game))
-        break;
-      noecho();
-    }
-
-    int ret = run_one_game(sock, &game);
+    int ret = run_one_game(sock, game_file_path);
+    if (ret < -1)
+      continue;
     if (ret < 0)
       break;
   }
@@ -686,13 +752,18 @@ int main(int argc, char *argv[])
 
   show = argc > 2 && !strcmp(argv[2], "show");
 
-  int server_fd, new_socket = -1;
-  if (should_create_socket)
+  char *game_file_path = NULL;
+  if (argc > 2)
   {
-    CreateSocket(&server_fd, &new_socket);
+    game_file_path = strdup(argv[3]);
+    // parse_games_from_file(argv[3]);
   }
 
-  run_game(new_socket);
+  int server_fd, new_socket = -1;
+  if (should_create_socket)
+    CreateSocket(&server_fd, &new_socket);
+
+  run_game(new_socket, game_file_path);
 
   if (should_create_socket)
   {
