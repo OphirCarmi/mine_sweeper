@@ -12,11 +12,19 @@ static int8_t cell_with_neighbours[49][2];
 
 static int8_t num_cell_with_neighbours = sizeof(cell_with_neighbours) / sizeof(cell_with_neighbours[0]);
 
+struct Step
+{
+  struct Position pos;
+  bool reveal;
+};
+
 struct User
 {
   char **patterns;
   size_t patterns_len;
   char *revealed_board;
+  struct Step *steps;
+  int num_steps;
   int num_flags;
   struct Position pos;
   struct GameConfig config;
@@ -514,7 +522,7 @@ void run_one_game(int sock, struct User *user, int game_i)
 
   bool random_reveal = false;
 
-  for (int iter = 0;; ++iter)
+  for (int iter = 0, step_cnt = 0;; ++iter)
   {
     int8_t msg_type;
     int len;
@@ -568,6 +576,18 @@ void run_one_game(int sock, struct User *user, int game_i)
     // }
     // printf("-\n");
 
+    if (step_cnt < user->num_steps)
+    {
+      struct Step *ptr = &user->steps[step_cnt++];
+      int diff_i = ptr->pos.i - user->pos.i;
+      int diff_j = ptr->pos.j - user->pos.j;
+
+      MoveByDiff(sock, diff_i, diff_j);
+      char c = ' ';
+      send_message(sock, 1, &c, -1);
+      continue;
+    }
+
     if (CheckForSolution(user, sock))
     {
       random_reveal = false;
@@ -606,9 +626,58 @@ void run_user(int sock, struct User *user)
   // usleep(10000);
 }
 
+void parse_user_from_file(const char *user_file, struct User *user)
+{
+  FILE *f = fopen(user_file, "r");
+
+  size_t len = 0;
+  ssize_t read;
+
+  if (f == NULL)
+    exit(EXIT_FAILURE);
+
+  int rows, cols;
+  read = fscanf(f, "%dx%d,%d", &rows, &cols, &user->config.mines);
+  if (read != 3 || rows <= 0 || rows > 127 || cols <= 0 || cols > 127)
+  {
+    printf("failed to read config\n");
+    exit(-1);
+  }
+
+  user->config.rows = rows;
+  user->config.cols = cols;
+
+  long curr = ftell(f);
+
+  int i, j, reveal;
+  user->num_steps = 0;
+  while ((read = fscanf(f, "%d,%d,%d", &i, &j, &reveal)) == 3)
+  {
+    ++user->num_steps;
+  }
+
+  user->steps = (struct Step *)malloc(sizeof(*user->steps) * user->num_steps);
+
+  fseek(f, curr, SEEK_SET);
+
+  int cnt = 0;
+  while ((read = fscanf(f, "%d,%d,%d", &i, &j, &reveal)) == 3)
+  {
+    if (i < 0 || i > 127 || j < 0 || j > 127 || reveal < 0 || reveal > 1)
+      exit(-1);
+    struct Step *ptr = &user->steps[cnt++];
+    ptr->pos.i = i;
+    ptr->pos.j = j;
+    ptr->reveal = reveal;
+  }
+
+  fclose(f);
+}
+
 int main(int argc, char *argv[])
 {
   struct User user;
+  user.steps = NULL;
 
   switch (argv[1][0])
   {
@@ -627,10 +696,8 @@ int main(int argc, char *argv[])
     user.config.cols = 30;
     user.config.mines = 99;
     break;
-  case '4':
-    user.config.rows = 3;
-    user.config.cols = 3;
-    user.config.mines = 3;
+  default:
+    parse_user_from_file(argv[1], &user);
     break;
   }
   int sock = 0;
