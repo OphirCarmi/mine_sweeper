@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <math.h>
 
 #include "common/common.h"
 #include "patterns.h"
@@ -502,6 +503,252 @@ void DeInit(struct User *user)
   for (int i = 0; i < user->patterns_len; ++i)
     free(user->patterns[i]);
   free(user->patterns);
+
+  free(user->steps);
+}
+
+// An iterative binary search function.
+int binarySearch(int *arr, int low, int high, int x)
+{
+  while (low <= high)
+  {
+    int mid = low + (high - low) / 2;
+
+    // Check if x is present at mid
+    if (arr[mid] == x)
+      return mid;
+
+    // If x greater, ignore left half
+    if (arr[mid] < x)
+      low = mid + 1;
+
+    // If x is smaller, ignore right half
+    else
+      high = mid - 1;
+  }
+
+  // If we reach here, then element was not present
+  return -1;
+}
+
+void max_entropy_solution(struct User *user)
+{
+  int num_cells = user->config.rows * user->config.cols;
+  int unrevealed_cnt = 0;
+  // get unrevealed count
+  for (int i = 0; i < num_cells; ++i)
+  {
+    unrevealed_cnt += user->revealed_board[i] == ' ';
+  }
+
+  int *unrevealed_indices = (int *)malloc(unrevealed_cnt * sizeof(*unrevealed_indices));
+  int k = 0;
+  // get unrevealed indices
+  printf("unrevealed_indices ");
+  for (int i = 0; i < num_cells; ++i)
+  {
+    if (user->revealed_board[i] != ' ')
+      continue;
+    unrevealed_indices[k++] = i;
+    printf("%d,", i);
+  }
+  printf("\n");
+
+  double *p = (double *)malloc(unrevealed_cnt * sizeof(*p));
+  double *last_p = (double *)malloc(unrevealed_cnt * sizeof(*last_p));
+  double *q = (double *)malloc(unrevealed_cnt * sizeof(*q));
+
+  // set to 1 as we know the number of total mines
+  int constraint_cnt = 1;
+  // get constraint count
+  for (int i = 0; i < num_cells; ++i)
+  {
+    char val = user->revealed_board[i];
+    constraint_cnt += val >= '1' && val <= '8';
+  }
+  double *c = (double *)malloc(constraint_cnt * sizeof(*c));
+
+  int *constraint_indices = (int *)malloc((constraint_cnt - 1) * sizeof(*constraint_indices));
+
+  k = 0;
+  printf("c ");
+  for (int i = 0; i < num_cells; ++i)
+  {
+    char val = user->revealed_board[i];
+    if (val < '1' || val > '8')
+      continue;
+    c[k] = val - '0';
+    printf("%g,", c[k]);
+    constraint_indices[k++] = i;
+  }
+  printf("\n");
+
+  c[k] = user->config.mines;
+
+  for (int i = 0; i < unrevealed_cnt; ++i)
+  {
+    p[i] = 1.;
+    q[i] = 1.;
+  }
+
+  for (int algo_iter = 0;; ++algo_iter)
+  {
+    printf("algo_iter %d\n", algo_iter);
+    for (int i = 0; i < constraint_cnt - 1; ++i)
+    {
+      int curr_constrait_ind = constraint_indices[i];
+      double curr_constraint_val = c[i];
+      int curr_constraint_row = curr_constrait_ind / user->config.cols;
+      int curr_constraint_col = curr_constrait_ind % user->config.cols;
+
+      double sum_p = 0.;
+      double sum_q = 0.;
+      double num_unrevealed_neigh = 0;
+      for (int m = curr_constraint_row - 1; m <= curr_constraint_row + 1; ++m)
+      {
+        if (m < 0 || m >= user->config.rows)
+          continue;
+        for (int n = curr_constraint_col - 1; n <= curr_constraint_col + 1; ++n)
+        {
+          if (n < 0 || n >= user->config.cols)
+            continue;
+          int neigh_ind = m * user->config.cols + n;
+          if (user->revealed_board[neigh_ind] != ' ')
+            continue;
+          printf("A neigh_ind %d\n", neigh_ind);
+          int neigh_ind2 = binarySearch(unrevealed_indices, 0, unrevealed_cnt - 1, neigh_ind);
+          printf("A neigh_ind2 %d\n", neigh_ind2);
+          if (neigh_ind2 < 0)
+            exit(-3);
+          sum_p += p[neigh_ind2];
+          sum_q += q[neigh_ind2];
+          num_unrevealed_neigh++;
+        }
+      }
+
+      printf("sum_p %g\n", sum_p);
+      printf("sum_q %g\n", sum_q);
+
+      if (fabs(sum_p - curr_constraint_val) > 0.001)
+      {
+        for (int m = curr_constraint_row - 1; m <= curr_constraint_row + 1; ++m)
+        {
+          if (m < 0 || m >= user->config.rows)
+            continue;
+          for (int n = curr_constraint_col - 1; n <= curr_constraint_col + 1; ++n)
+          {
+            if (n < 0 || n >= user->config.cols)
+              continue;
+            int neigh_ind = m * user->config.cols + n;
+            if (user->revealed_board[neigh_ind] != ' ')
+              continue;
+          printf("B neigh_ind %d\n", neigh_ind);
+            int neigh_ind2 = binarySearch(unrevealed_indices, 0, unrevealed_cnt - 1, neigh_ind);
+          printf("B neigh_ind2 %d\n", neigh_ind2);
+            if (neigh_ind2 < 0)
+              exit(-3);
+            p[neigh_ind2] *= curr_constraint_val / sum_p;
+          }
+        }
+      }
+
+      if (fabs(sum_q - num_unrevealed_neigh + curr_constraint_val) > 0.001)
+      {
+        for (int m = curr_constraint_row - 1; m <= curr_constraint_row + 1; ++m)
+        {
+          if (m < 0 || m >= user->config.rows)
+            continue;
+          for (int n = curr_constraint_col - 1; n <= curr_constraint_col + 1; ++n)
+          {
+            if (n < 0 || n >= user->config.cols)
+              continue;
+            int neigh_ind = m * user->config.cols + n;
+            if (user->revealed_board[neigh_ind] != ' ')
+              continue;
+          printf("C neigh_ind %d\n", neigh_ind);
+            int neigh_ind2 = binarySearch(unrevealed_indices, 0, unrevealed_cnt - 1, neigh_ind);
+          printf("C neigh_ind2 %d\n", neigh_ind2);
+            if (neigh_ind2 < 0)
+              exit(-3);
+            q[neigh_ind2] *= (num_unrevealed_neigh - curr_constraint_val) / sum_q;
+          }
+        }
+      }
+    }
+
+    // last constraint - total mines
+    double sum_p = 0.;
+    double sum_q = 0.;
+    for (int i = 0; i < unrevealed_cnt; ++i)
+    {
+      sum_p += p[i];
+      sum_q += q[i];
+    }
+
+    if (fabs(sum_p - c[constraint_cnt - 1]) > 0.001)
+    {
+      for (int i = 0; i < unrevealed_cnt; ++i)
+      {
+        p[i] *= c[constraint_cnt - 1] / sum_p;
+      }
+    }
+
+    if (fabs(sum_q - unrevealed_cnt + c[constraint_cnt - 1]) > 0.001)
+    {
+      for (int i = 0; i < unrevealed_cnt; ++i)
+      {
+        q[i] *= (unrevealed_cnt - c[constraint_cnt - 1]) / sum_q;
+      }
+    }
+
+    for (int i = 0; i < unrevealed_cnt; ++i)
+    {
+      double sum = p[i] + q[i];
+      p[i] = p[i] / sum;
+      q[i] = q[i] / sum;
+    }
+
+    printf("p ");
+    for (int i = 0; i < unrevealed_cnt; ++i)
+    {
+      printf("%g,", p[i]);
+    }
+    printf("\n");
+    printf("last_p ");
+    for (int i = 0; i < unrevealed_cnt; ++i)
+    {
+      printf("%g,", last_p[i]);
+    }
+    printf("\n");
+
+    printf("q ");
+    for (int i = 0; i < unrevealed_cnt; ++i)
+    {
+      printf("%g,", q[i]);
+    }
+    printf("\n");
+
+    bool done = true;
+    for (int i = 0; i < unrevealed_cnt; ++i)
+    {
+      if (fabs(last_p[i] - p[i]) > 0.0001)
+      {
+        done = false;
+        break;
+      }
+    }
+    if (done)
+      break;
+
+    memcpy(last_p, p, unrevealed_cnt * sizeof(*p));
+  }
+
+  free(c);
+  free(p);
+  free(last_p);
+  free(q);
+  free(unrevealed_indices);
+  free(constraint_indices);
 }
 
 void run_one_game(int sock, struct User *user, int game_i)
@@ -555,6 +802,12 @@ void run_one_game(int sock, struct User *user, int game_i)
       fprintf(f, "end_game,%d,rows,%d,cols,%d,mines,%d\n", end_game, user->config.rows, user->config.cols, user->config.mines);
       fclose(f);
       break;
+    }
+
+    if (step_cnt == 3)
+    {
+      max_entropy_solution(user);
+      exit(-2);
     }
 
     // for (int m = 0; m < user->config.rows; ++m)
