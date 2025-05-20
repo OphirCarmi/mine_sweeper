@@ -786,6 +786,8 @@ void max_entropy_solution(int sock, struct User *user)
   {
     ch = ' ';
     ind = argmin;
+  } else {
+    user->num_flags++;
   }
 
   // TODO(oc) : multiple values the same as max/min random
