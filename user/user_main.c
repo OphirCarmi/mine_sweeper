@@ -531,7 +531,7 @@ int binarySearch(int *arr, int low, int high, int x)
   return -1;
 }
 
-void max_entropy_solution(struct User *user)
+void max_entropy_solution(int sock, struct User *user)
 {
   int num_cells = user->config.rows * user->config.cols;
   int unrevealed_cnt = 0;
@@ -544,15 +544,15 @@ void max_entropy_solution(struct User *user)
   int *unrevealed_indices = (int *)malloc(unrevealed_cnt * sizeof(*unrevealed_indices));
   int k = 0;
   // get unrevealed indices
-  printf("unrevealed_indices ");
+  // printf("unrevealed_indices ");
   for (int i = 0; i < num_cells; ++i)
   {
     if (user->revealed_board[i] != ' ')
       continue;
     unrevealed_indices[k++] = i;
-    printf("%d,", i);
+    // printf("%d,", i);
   }
-  printf("\n");
+  // printf("\n");
 
   double *p = (double *)malloc(unrevealed_cnt * sizeof(*p));
   double *last_p = (double *)malloc(unrevealed_cnt * sizeof(*last_p));
@@ -571,21 +571,21 @@ void max_entropy_solution(struct User *user)
   int *constraint_indices = (int *)malloc((constraint_cnt - 1) * sizeof(*constraint_indices));
 
   k = 0;
-  printf("c ");
+  // printf("c ");
   for (int i = 0; i < num_cells; ++i)
   {
     char val = user->revealed_board[i];
     if (val < '1' || val > '8')
       continue;
     c[k] = val - '0';
-    printf("%g,", c[k]);
+    // printf("%g,", c[k]);
     constraint_indices[k++] = i;
   }
 
   c[k] = user->config.mines - user->num_flags;
 
-  printf("%g,", c[k]);
-  printf("\n");
+  // printf("%g,", c[k]);
+  // printf("\n");
 
   for (int i = 0; i < unrevealed_cnt; ++i)
   {
@@ -593,9 +593,9 @@ void max_entropy_solution(struct User *user)
     q[i] = 1.;
   }
 
-  for (int algo_iter = 0;; ++algo_iter)
+  for (int algo_iter = 0;algo_iter < 1000; ++algo_iter)
   {
-    printf("algo_iter %d\n", algo_iter);
+    // printf("algo_iter %d\n", algo_iter);
     for (int i = 0; i < constraint_cnt - 1; ++i)
     {
       int curr_constrait_ind = constraint_indices[i];
@@ -624,24 +624,24 @@ void max_entropy_solution(struct User *user)
 
           if (neigh_val != ' ')
             continue;
-          printf("A neigh_ind %d\n", neigh_ind);
+          // printf("A neigh_ind %d\n", neigh_ind);
           int neigh_ind2 = binarySearch(unrevealed_indices, 0, unrevealed_cnt - 1, neigh_ind);
-          printf("A neigh_ind2 %d\n", neigh_ind2);
+          // printf("A neigh_ind2 %d\n", neigh_ind2);
           if (neigh_ind2 < 0)
             exit(-3);
-          printf("p[neigh_ind2] %g\n", p[neigh_ind2]);
+          // printf("p[neigh_ind2] %g\n", p[neigh_ind2]);
           sum_p += p[neigh_ind2];
           sum_q += q[neigh_ind2];
           num_unrevealed_neigh++;
         }
       }
 
-      printf("curr_constraint_val %g\n", curr_constraint_val);
-      printf("num_unrevealed_neigh %g\n", num_unrevealed_neigh);
+      // printf("curr_constraint_val %g\n", curr_constraint_val);
+      // printf("num_unrevealed_neigh %g\n", num_unrevealed_neigh);
       if (curr_constraint_val == 0.)
         continue;
-      printf("sum_p %g\n", sum_p);
-      printf("sum_q %g\n", sum_q);
+      // printf("sum_p %g\n", sum_p);
+      // printf("sum_q %g\n", sum_q);
 
       if (fabs(sum_p - curr_constraint_val) > 0.001)
       {
@@ -656,9 +656,9 @@ void max_entropy_solution(struct User *user)
             int neigh_ind = m * user->config.cols + n;
             if (user->revealed_board[neigh_ind] != ' ')
               continue;
-            printf("B neigh_ind %d\n", neigh_ind);
+            // printf("B neigh_ind %d\n", neigh_ind);
             int neigh_ind2 = binarySearch(unrevealed_indices, 0, unrevealed_cnt - 1, neigh_ind);
-            printf("B neigh_ind2 %d\n", neigh_ind2);
+            // printf("B neigh_ind2 %d\n", neigh_ind2);
             if (neigh_ind2 < 0)
               exit(-3);
             p[neigh_ind2] *= curr_constraint_val / sum_p;
@@ -679,9 +679,9 @@ void max_entropy_solution(struct User *user)
             int neigh_ind = m * user->config.cols + n;
             if (user->revealed_board[neigh_ind] != ' ')
               continue;
-            printf("C neigh_ind %d\n", neigh_ind);
+            // printf("C neigh_ind %d\n", neigh_ind);
             int neigh_ind2 = binarySearch(unrevealed_indices, 0, unrevealed_cnt - 1, neigh_ind);
-            printf("C neigh_ind2 %d\n", neigh_ind2);
+            // printf("C neigh_ind2 %d\n", neigh_ind2);
             if (neigh_ind2 < 0)
               exit(-3);
             q[neigh_ind2] *= (num_unrevealed_neigh - curr_constraint_val) / sum_q;
@@ -722,25 +722,25 @@ void max_entropy_solution(struct User *user)
       q[i] = q[i] / sum;
     }
 
-    printf("p ");
-    for (int i = 0; i < unrevealed_cnt; ++i)
-    {
-      printf("%g,", p[i]);
-    }
-    printf("\n");
-    printf("last_p ");
-    for (int i = 0; i < unrevealed_cnt; ++i)
-    {
-      printf("%g,", last_p[i]);
-    }
-    printf("\n");
+    // printf("p ");
+    // for (int i = 0; i < unrevealed_cnt; ++i)
+    // {
+    //   printf("%g,", p[i]);
+    // }
+    // printf("\n");
+    // printf("last_p ");
+    // for (int i = 0; i < unrevealed_cnt; ++i)
+    // {
+    //   printf("%g,", last_p[i]);
+    // }
+    // printf("\n");
 
-    printf("q ");
-    for (int i = 0; i < unrevealed_cnt; ++i)
-    {
-      printf("%g,", q[i]);
-    }
-    printf("\n");
+    // printf("q ");
+    // for (int i = 0; i < unrevealed_cnt; ++i)
+    // {
+    //   printf("%g,", q[i]);
+    // }
+    // printf("\n");
 
     bool done = true;
     for (int i = 0; i < unrevealed_cnt; ++i)
@@ -756,6 +756,49 @@ void max_entropy_solution(struct User *user)
 
     memcpy(last_p, p, unrevealed_cnt * sizeof(*p));
   }
+
+  int argmax = -1;
+  int argmin = -1;
+  double max = -1.;
+  double min = 2.;
+  for (int i = 0; i < unrevealed_cnt; ++i)
+  {
+    if (max < p[i])
+    {
+      argmax = i;
+      max = p[i];
+    }
+    if (min > p[i])
+    {
+      argmin = i;
+      min = p[i];
+    }
+  }
+
+  if (max > 1.)
+    max = 1.;
+  if (min < 0.)
+    min = 0.;
+
+  int ind = argmax;
+  char ch = 'f';
+  if (min < (1 - max))
+  {
+    ch = ' ';
+    ind = argmin;
+  }
+
+  // TODO(oc) : multiple values the same as max/min random
+  int ind2 = unrevealed_indices[ind];
+  int row_ind = ind2 / user->config.rows;
+  int col_ind = ind2 % user->config.cols;
+
+  int diff_i = row_ind - user->pos.i;
+  int diff_j = col_ind - user->pos.j;
+
+  MoveByDiff(sock, diff_i, diff_j);
+
+  send_message(sock, 1, &ch, -1);
 
   free(c);
   free(p);
@@ -802,11 +845,11 @@ void run_one_game(int sock, struct User *user, int game_i)
       break;
     case 2:
       end_game = msg[0] ? Win : Lose;
-      if (!random_reveal && end_game == Lose)
-      {
-        printf("lost after random reveal\n");
-        exit(-1);
-      }
+      // if (!random_reveal && end_game == Lose)
+      // {
+      //   printf("lost after random reveal\n");
+      //   exit(-1);
+      // }
       break;
     }
 
@@ -865,12 +908,12 @@ void run_one_game(int sock, struct User *user, int game_i)
     //   getchar();
     // }
 
-    max_entropy_solution(user);
-    if (step_cnt == 4)
-      exit(-2);
+    max_entropy_solution(sock, user);
+    // if (step_cnt == 4)
+    // exit(-2);
 
     random_reveal = true;
-    RevealRandomLocation(user, sock);
+    // RevealRandomLocation(user, sock);
   }
 
   free(msg);

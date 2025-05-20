@@ -687,6 +687,8 @@ void run_game(int sock, const char *game_file_path)
 
   for (int g = 0;; ++g)
   {
+    // if (g > 368) show = true;
+
     // printf("g %d\n", g);
 
     int ret = run_one_game(sock, game_file_path);
@@ -753,7 +755,7 @@ int main(int argc, char *argv[])
   show = argc > 2 && !strcmp(argv[2], "show");
 
   char *game_file_path = NULL;
-  if (argc > 2)
+  if (argc > 3)
   {
     game_file_path = strdup(argv[3]);
     // parse_games_from_file(argv[3]);
