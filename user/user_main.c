@@ -581,9 +581,11 @@ void max_entropy_solution(struct User *user)
     printf("%g,", c[k]);
     constraint_indices[k++] = i;
   }
-  printf("\n");
 
-  c[k] = user->config.mines;
+  c[k] = user->config.mines - user->num_flags;
+
+  printf("%g,", c[k]);
+  printf("\n");
 
   for (int i = 0; i < unrevealed_cnt; ++i)
   {
@@ -613,19 +615,31 @@ void max_entropy_solution(struct User *user)
           if (n < 0 || n >= user->config.cols)
             continue;
           int neigh_ind = m * user->config.cols + n;
-          if (user->revealed_board[neigh_ind] != ' ')
+          char neigh_val = user->revealed_board[neigh_ind];
+          if (neigh_val == 'f')
+          {
+            curr_constraint_val--;
+            continue;
+          }
+
+          if (neigh_val != ' ')
             continue;
           printf("A neigh_ind %d\n", neigh_ind);
           int neigh_ind2 = binarySearch(unrevealed_indices, 0, unrevealed_cnt - 1, neigh_ind);
           printf("A neigh_ind2 %d\n", neigh_ind2);
           if (neigh_ind2 < 0)
             exit(-3);
+          printf("p[neigh_ind2] %g\n", p[neigh_ind2]);
           sum_p += p[neigh_ind2];
           sum_q += q[neigh_ind2];
           num_unrevealed_neigh++;
         }
       }
 
+      printf("curr_constraint_val %g\n", curr_constraint_val);
+      printf("num_unrevealed_neigh %g\n", num_unrevealed_neigh);
+      if (curr_constraint_val == 0.)
+        continue;
       printf("sum_p %g\n", sum_p);
       printf("sum_q %g\n", sum_q);
 
@@ -642,9 +656,9 @@ void max_entropy_solution(struct User *user)
             int neigh_ind = m * user->config.cols + n;
             if (user->revealed_board[neigh_ind] != ' ')
               continue;
-          printf("B neigh_ind %d\n", neigh_ind);
+            printf("B neigh_ind %d\n", neigh_ind);
             int neigh_ind2 = binarySearch(unrevealed_indices, 0, unrevealed_cnt - 1, neigh_ind);
-          printf("B neigh_ind2 %d\n", neigh_ind2);
+            printf("B neigh_ind2 %d\n", neigh_ind2);
             if (neigh_ind2 < 0)
               exit(-3);
             p[neigh_ind2] *= curr_constraint_val / sum_p;
@@ -665,9 +679,9 @@ void max_entropy_solution(struct User *user)
             int neigh_ind = m * user->config.cols + n;
             if (user->revealed_board[neigh_ind] != ' ')
               continue;
-          printf("C neigh_ind %d\n", neigh_ind);
+            printf("C neigh_ind %d\n", neigh_ind);
             int neigh_ind2 = binarySearch(unrevealed_indices, 0, unrevealed_cnt - 1, neigh_ind);
-          printf("C neigh_ind2 %d\n", neigh_ind2);
+            printf("C neigh_ind2 %d\n", neigh_ind2);
             if (neigh_ind2 < 0)
               exit(-3);
             q[neigh_ind2] *= (num_unrevealed_neigh - curr_constraint_val) / sum_q;
@@ -804,12 +818,6 @@ void run_one_game(int sock, struct User *user, int game_i)
       break;
     }
 
-    if (step_cnt == 3)
-    {
-      max_entropy_solution(user);
-      exit(-2);
-    }
-
     // for (int m = 0; m < user->config.rows; ++m)
     // {
     //   for (int j = 0; j < user->config.cols; ++j)
@@ -836,7 +844,11 @@ void run_one_game(int sock, struct User *user, int game_i)
       int diff_j = ptr->pos.j - user->pos.j;
 
       MoveByDiff(sock, diff_i, diff_j);
-      char c = ' ';
+      char c = 'f';
+      if (ptr->reveal)
+        c = ' ';
+      else
+        user->num_flags++;
       send_message(sock, 1, &c, -1);
       continue;
     }
@@ -852,6 +864,11 @@ void run_one_game(int sock, struct User *user, int game_i)
     //   printf("revealing random %d\n", iter);
     //   getchar();
     // }
+
+    max_entropy_solution(user);
+    if (step_cnt == 4)
+      exit(-2);
+
     random_reveal = true;
     RevealRandomLocation(user, sock);
   }
