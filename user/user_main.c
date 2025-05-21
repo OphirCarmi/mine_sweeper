@@ -781,10 +781,12 @@ void max_entropy_solution(int sock, struct User *user)
     min = 0.;
 
   double val = max;
-  // if (min < (1 - max))
-  // {
-  val = min;
-  // }
+  if (max < 0.99)// && min < (1 - max))
+  {
+    val = min;
+  // } else {
+    // printf("found a max\n");
+  }
   int extreme_cnt = 0;
   for (int i = 0; i < unrevealed_cnt; ++i)
   {
@@ -808,12 +810,12 @@ void max_entropy_solution(int sock, struct User *user)
   // printf("\n");
 
   char ch = 'f';
-  // if (min < (1 - max))
-  // {
-  ch = ' ';
-  // } else {
-  //   user->num_flags++;
-  // }
+  if (max < 0.99)// && min < (1 - max))
+  {
+    ch = ' ';
+  } else {
+    user->num_flags++;
+  }
 
   int ind = possible_indices[rand() % extreme_cnt];
   // printf("ind %d\n", ind);
@@ -839,6 +841,7 @@ void max_entropy_solution(int sock, struct User *user)
 
   send_message(sock, 1, &ch, -1);
 
+  free(possible_indices);
   free(c);
   free(p);
   free(last_p);
