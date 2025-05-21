@@ -593,7 +593,7 @@ void max_entropy_solution(int sock, struct User *user)
     q[i] = 1.;
   }
 
-  for (int algo_iter = 0;algo_iter < 1000; ++algo_iter)
+  for (int algo_iter = 0; algo_iter < 1000; ++algo_iter)
   {
     // printf("algo_iter %d\n", algo_iter);
     for (int i = 0; i < constraint_cnt - 1; ++i)
@@ -780,20 +780,57 @@ void max_entropy_solution(int sock, struct User *user)
   if (min < 0.)
     min = 0.;
 
-  int ind = argmax;
-  char ch = 'f';
-  if (min < (1 - max))
+  double val = max;
+  // if (min < (1 - max))
+  // {
+  val = min;
+  // }
+  int extreme_cnt = 0;
+  for (int i = 0; i < unrevealed_cnt; ++i)
   {
-    ch = ' ';
-    ind = argmin;
-  } else {
-    user->num_flags++;
+    extreme_cnt += fabs(p[i] - val) < 0.01;
   }
+
+  int *possible_indices = (int *)malloc(sizeof(*possible_indices) * extreme_cnt);
+  int ii = 0;
+  for (int i = 0; i < unrevealed_cnt; ++i)
+  {
+    if (fabs(p[i] - val) >= 0.01)
+      continue;
+    possible_indices[ii++] = i;
+  }
+
+  // printf("possible_indices ");
+  // for (int i = 0; i < extreme_cnt; ++i)
+  // {
+  //   printf("%d,", possible_indices[i]);
+  // }
+  // printf("\n");
+
+  char ch = 'f';
+  // if (min < (1 - max))
+  // {
+  ch = ' ';
+  // } else {
+  //   user->num_flags++;
+  // }
+
+  int ind = possible_indices[rand() % extreme_cnt];
+  // printf("ind %d\n", ind);
 
   // TODO(oc) : multiple values the same as max/min random
   int ind2 = unrevealed_indices[ind];
-  int row_ind = ind2 / user->config.rows;
+  // printf("ind2 %d\n", ind2);
+
+  int row_ind = ind2 / user->config.cols;
   int col_ind = ind2 % user->config.cols;
+  // printf("row_ind %d\n", row_ind);
+  // printf("col_ind %d\n", col_ind);
+
+  // if (min < 0.01) {
+  //   printf("definitely not a mine %d,%d\n", row_ind, col_ind);
+  //   getchar();
+  // }
 
   int diff_i = row_ind - user->pos.i;
   int diff_j = col_ind - user->pos.j;

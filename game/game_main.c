@@ -11,6 +11,8 @@
 
 #include "common/common.h"
 
+// #define SLOW
+
 static bool show = false;
 
 struct Game
@@ -237,7 +239,11 @@ void RevealZeroes(struct Game *game)
       {
         DrawBoard(game, false, false);
         refresh();
+#ifdef SLOW
         usleep(50000);
+#else // SLOW
+        usleep(50);
+#endif // SLOW
       }
 
       if (game->hidden_board[neigh_row_ind][neigh_col_ind] != 0)
@@ -579,7 +585,11 @@ int run_one_game(int sock, const char *game_file_path)
       printw("use space bar to reveal\n");
       printw("use `f` to flag an existing mine\n");
       refresh();
-      usleep(100000);
+#ifdef SLOW
+        usleep(100000);
+#else // SLOW
+        usleep(10);
+#endif // SLOW
     }
     char c;
     int8_t msg_type;
