@@ -562,8 +562,12 @@ int run_one_game(int sock, const char *game_file_path)
 
   int *indices = NULL;
   int config_ret = GetConfig(sock, &game, game_file_path, &indices);
-  if (config_ret)
-    return config_ret;
+  switch(config_ret) {
+    case 1:
+      return -1;
+    case 2:
+      return 2;
+  }
 
   Init(&game);
   write_revealed_board(&game, sock);
@@ -702,6 +706,7 @@ void run_game(int sock, const char *game_file_path)
     // printf("g %d\n", g);
 
     int ret = run_one_game(sock, game_file_path);
+    // printf("ret %d\n", ret);
     if (ret < -1)
       continue;
     if (ret < 0)
