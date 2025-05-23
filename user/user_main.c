@@ -7,11 +7,6 @@
 #include <math.h>
 
 #include "common/common.h"
-#include "patterns.h"
-
-static int8_t cell_with_neighbours[49][2];
-
-static int8_t num_cell_with_neighbours = sizeof(cell_with_neighbours) / sizeof(cell_with_neighbours[0]);
 
 struct Step
 {
@@ -21,8 +16,6 @@ struct Step
 
 struct User
 {
-  char **patterns;
-  size_t patterns_len;
   char *revealed_board;
   struct Step *steps;
   int num_steps;
@@ -116,11 +109,12 @@ bool CheckForObviousMines(struct User *user, int sock)
             int diff_i = neigh_row_ind - user->pos.i;
             int diff_j = neigh_col_ind - user->pos.j;
 
-            MoveByDiff(sock, diff_i, diff_j);
+            // MoveByDiff(sock, diff_i, diff_j);
 
-            char c = ' ';
-            send_message(sock, 1, &c, -1);
-            return true;
+            // char c = ' ';
+            // send_message(sock, 1, &c, -1);
+            printf("checked and found empty %d,%d\n", neigh_row_ind, neigh_col_ind);
+            // return true;
           }
         }
       }
@@ -146,7 +140,7 @@ bool CheckForObviousMines(struct User *user, int sock)
           int diff_i = neigh_row_ind - user->pos.i;
           int diff_j = neigh_col_ind - user->pos.j;
 
-          MoveByDiff(sock, diff_i, diff_j);
+          // MoveByDiff(sock, diff_i, diff_j);
 
           // FILE *f = fopen("/tmp/user.txt", "a");
           // for (int m = 0; m < ROWS; ++m)
@@ -177,168 +171,15 @@ bool CheckForObviousMines(struct User *user, int sock)
 
           // printf("found %d,%d i %d, j %d val %c sum_unrevealed %d sum_flags %d\n", neigh_row_ind, neigh_col_ind, i, j, val, sum_unrevealed, sum_flags);
           // fflush(stdout);
-          // getchar();
-          char c = 'f';
-          send_message(sock, 1, &c, -1);
-          user->num_flags++;
-          return true;
+          // r();
+
+          printf("checked and found a mine %d,%d\n", neigh_row_ind, neigh_col_ind);
+
+          // char c = 'f';
+          // send_message(sock, 1, &c, -1);
+          // user->num_flags++;
+          // return true;
         }
-      }
-    }
-  }
-  return false;
-}
-
-bool CheckForAllMines(struct User *user, int sock)
-{
-  int possible_empty[49];
-  for (int i = 0; i < user->config.rows; ++i)
-  {
-    for (int j = 0; j < user->config.cols; ++j)
-    {
-      for (int p = 0; p < user->patterns_len; ++p)
-      {
-        bool ok = true;
-        int8_t should_flag = -1;
-        int possible_empty_len = 0;
-        int k = 0;
-        for (int neigh_row_ind = i - 7 / 2; neigh_row_ind < i + 7 / 2 + 1; neigh_row_ind++)
-        {
-          for (int neigh_col_ind = j - 7 / 2; neigh_col_ind < j + 7 / 2 + 1; neigh_col_ind++, ++k)
-          {
-            // printf("p %d k %d\n", p, k);
-            // printf("%c\n", user->patterns[p][k]);
-            char neigh_val;
-            switch (user->patterns[p][k])
-            {
-            case 'R':
-              break;
-            case 'X':
-              if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
-                break;
-              neigh_val = user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind];
-              if (neigh_val < '0' || neigh_val > '8')
-                ok = false;
-              break;
-            case 'Y':
-              if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
-                break;
-              neigh_val = user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind];
-              if (neigh_val != ' ' && (neigh_val < '0' || neigh_val > '8'))
-                ok = false;
-              break;
-            case 'I':
-              if (user->num_flags != user->config.mines - 1)
-              {
-                ok = false;
-                break;
-              }
-              // FALLTHROUGH
-            case 'S':
-              if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
-              {
-                ok = false;
-                break;
-              }
-              if (user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind] != ' ')
-              {
-                ok = false;
-                break;
-              }
-              should_flag = k;
-              break;
-            case 'E':
-              if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
-              {
-                ok = false;
-                break;
-              }
-              if (user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind] != ' ')
-              {
-                ok = false;
-                break;
-              }
-              possible_empty[possible_empty_len++] = k;
-              break;
-            case ' ':
-            // FALLTHROUGH
-            case 'f':
-            // FALLTHROUGH
-            case '1':
-            // FALLTHROUGH
-            case '2':
-            // FALLTHROUGH
-            case '3':
-              // FALLTHROUGH
-            case '4':
-              // FALLTHROUGH
-            case '5':
-              // FALLTHROUGH
-            case '6':
-              // FALLTHROUGH
-            case '7':
-              // FALLTHROUGH
-            case '8':
-              if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
-              {
-                ok = false;
-                break;
-              }
-              if (user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind] != user->patterns[p][k])
-                ok = false;
-              break;
-            }
-            if (!ok)
-              break;
-          }
-        }
-        if (!ok)
-          continue;
-
-        int ind = should_flag;
-        if (ind < 0)
-        {
-          if (possible_empty_len == 1)
-          {
-            ind = possible_empty[0];
-          }
-          else
-          {
-            ind = possible_empty[rand() % possible_empty_len];
-          }
-        }
-
-        int neigh_row_ind = i + cell_with_neighbours[ind][0];
-        int neigh_col_ind = j + cell_with_neighbours[ind][1];
-
-        // if (p > 3)
-        // {
-        //   printf("found %d,%d %d", i, j, p);
-        //   fflush(stdout);
-        //   getchar();
-        // }
-
-        int diff_i = neigh_row_ind - user->pos.i;
-        int diff_j = neigh_col_ind - user->pos.j;
-
-        MoveByDiff(sock, diff_i, diff_j);
-
-        char c = should_flag >= 0 ? 'f' : ' ';
-        send_message(sock, 1, &c, -1);
-        if (c == 'f')
-          user->num_flags++;
-        // printf("c %c\n", c);
-        // printf("p %d\n", p);
-
-        // for (int ii = 0; ii < 7; ii++)
-        // {
-        //   for (int jj = 0; jj < 7; jj++)
-        //   {
-        //     printf("%c", user->patterns[p][ii * 7 + jj]);
-        //   }
-        //   printf("\n");
-        // }
-        return true;
       }
     }
   }
@@ -347,75 +188,7 @@ bool CheckForAllMines(struct User *user, int sock)
 
 bool CheckForSolution(struct User *user, int sock)
 {
-  if (CheckForObviousMines(user, sock))
-  {
-    // printf("obvious\n");
-    return true;
-  }
-  // printf("all\n");
-  return false ;//CheckForAllMines(user, sock);
-}
-
-void RevealRandomLocation(const struct User *user, int sock)
-{
-  int num_cells = user->config.rows * user->config.cols;
-  int *indices = (int *)malloc(sizeof(*indices) * num_cells);
-  int num_unrevealed = 0;
-  for (int i = 0; i < num_cells; ++i)
-  {
-    if (user->revealed_board[i] != ' ')
-      continue;
-
-    // check for neigbours without numbers greater than 0
-    int k = 0;
-    for (; k < num_neighbours; ++k)
-    {
-      int neigh_row_ind = i / user->config.cols + neighbours[k][0];
-      int neigh_col_ind = i % user->config.cols + neighbours[k][1];
-      if (neigh_row_ind < 0 || neigh_row_ind >= user->config.rows || neigh_col_ind < 0 || neigh_col_ind >= user->config.cols)
-        continue;
-      char val = user->revealed_board[neigh_row_ind * user->config.cols + neigh_col_ind];
-      if (val >= '1' && val <= '8')
-        break;
-    }
-    if (k != num_neighbours)
-      continue;
-    indices[num_unrevealed] = i;
-    ++num_unrevealed;
-  }
-
-  if (!num_unrevealed)
-  {
-    for (int i = 0; i < num_cells; ++i)
-    {
-      if (user->revealed_board[i] != ' ')
-        continue;
-
-      indices[num_unrevealed] = i;
-      ++num_unrevealed;
-    }
-  }
-
-  for (int i = 0; i < num_unrevealed; ++i)
-  {
-    int ind = i + rand() % (num_unrevealed - i);
-    int temp = indices[ind];
-    indices[ind] = indices[i];
-    indices[i] = temp;
-
-    int row_ind = temp / user->config.cols;
-    int col_ind = temp % user->config.cols;
-    int diff_i = row_ind - user->pos.i;
-    int diff_j = col_ind - user->pos.j;
-
-    MoveByDiff(sock, diff_i, diff_j);
-
-    char c = ' ';
-    send_message(sock, 1, &c, -1);
-    break;
-  }
-
-  free(indices);
+  return CheckForObviousMines(user, sock);
 }
 
 enum EndGame
@@ -442,60 +215,6 @@ void parse_board_message(char *msg, int len, struct User *user)
   memcpy(&user->pos, ptr, sizeof(user->pos));
 }
 
-bool AlreadyExists(char **patterns, int len, char *curr)
-{
-  for (int i = 0; i < len; ++i)
-    if (!memcmp(patterns[i], curr, 49))
-      return true;
-  return false;
-}
-
-void CreatePatterns(struct User *user)
-{
-  size_t pattern_len = sizeof(patterns[0]);
-  int ind = 0;
-  user->patterns = (char **)malloc(patterns_len * rotations_len * sizeof(*user->patterns));
-  char curr_rotated_pattern[sizeof(patterns[0])] = {0};
-  for (int i = 0; i < patterns_len; ++i)
-  {
-    char *curr_pattern = patterns[i];
-    for (int j = 0; j < rotations_len; ++j)
-    {
-      int8_t *curr_rot = rotations[j];
-
-      bool action_exists = false;
-      for (int k = 0; k < pattern_len; ++k)
-      {
-        curr_rotated_pattern[k] = curr_pattern[curr_rot[k]];
-        switch (curr_rotated_pattern[k])
-        {
-        case 'S':
-        // FALLTHROUGH
-        case 'E':
-        // FALLTHROUGH
-        case 'I':
-          action_exists = true;
-          break;
-        }
-      }
-
-      if (!action_exists)
-      {
-        printf("Invalid pattern - no action");
-        exit(-9);
-      }
-
-      if (AlreadyExists(user->patterns, ind, curr_rotated_pattern))
-        continue;
-
-      user->patterns[ind] = (char *)calloc(pattern_len, 1);
-      memcpy(user->patterns[ind], curr_rotated_pattern, pattern_len);
-      ind++;
-    }
-  }
-  user->patterns_len = ind;
-}
-
 void Init(struct User *user)
 {
   int num_cells = user->config.rows * user->config.cols;
@@ -503,25 +222,12 @@ void Init(struct User *user)
   for (int i = 0; i < num_cells; ++i)
     user->revealed_board[i] = ' ';
 
-  CreatePatterns(user);
-
-  for (int i = 0; i < 7; ++i)
-  {
-    for (int j = 0; j < 7; ++j)
-    {
-      cell_with_neighbours[i * 7 + j][0] = i - 7 / 2;
-      cell_with_neighbours[i * 7 + j][1] = j - 7 / 2;
-    }
-  }
   user->num_flags = 0;
 }
 
 void DeInit(struct User *user)
 {
   free(user->revealed_board);
-  for (int i = 0; i < user->patterns_len; ++i)
-    free(user->patterns[i]);
-  free(user->patterns);
 
   free(user->steps);
 }
@@ -573,9 +279,9 @@ void max_entropy_solution(int sock, struct User *user)
   }
   // printf("\n");
 
-  double *p = (double *)malloc(unrevealed_cnt * sizeof(*p));
-  double *last_p = (double *)malloc(unrevealed_cnt * sizeof(*last_p));
-  double *q = (double *)malloc(unrevealed_cnt * sizeof(*q));
+  float *p = (float *)malloc(unrevealed_cnt * sizeof(*p));
+  float *last_p = (float *)malloc(unrevealed_cnt * sizeof(*last_p));
+  float *q = (float *)malloc(unrevealed_cnt * sizeof(*q));
 
   // set to 1 as we know the number of total mines
   int constraint_cnt = 1;
@@ -583,9 +289,37 @@ void max_entropy_solution(int sock, struct User *user)
   for (int i = 0; i < num_cells; ++i)
   {
     char val = user->revealed_board[i];
-    constraint_cnt += val >= '1' && val <= '8';
+    if (val < '1' || val > '8')
+      continue;
+
+    int curr_constraint_row = i / user->config.cols;
+    int curr_constraint_col = i % user->config.cols;
+    bool found_unrevealed_neigh = false;
+    for (int m = curr_constraint_row - 1; m <= curr_constraint_row + 1; ++m)
+    {
+      if (m < 0 || m >= user->config.rows)
+        continue;
+      for (int n = curr_constraint_col - 1; n <= curr_constraint_col + 1; ++n)
+      {
+        if (n < 0 || n >= user->config.cols)
+          continue;
+        int neigh_ind = m * user->config.cols + n;
+        char neigh_val = user->revealed_board[neigh_ind];
+        if (neigh_val == ' ')
+        {
+          found_unrevealed_neigh = true;
+          break;
+        }
+      }
+      if (found_unrevealed_neigh)
+        break;
+    }
+
+    if (!found_unrevealed_neigh)
+      continue;
+    constraint_cnt++;
   }
-  double *c = (double *)malloc(constraint_cnt * sizeof(*c));
+  float *c = (float *)malloc(constraint_cnt * sizeof(*c));
 
   int *constraint_indices = (int *)malloc((constraint_cnt - 1) * sizeof(*constraint_indices));
 
@@ -596,6 +330,33 @@ void max_entropy_solution(int sock, struct User *user)
     char val = user->revealed_board[i];
     if (val < '1' || val > '8')
       continue;
+
+    int curr_constraint_row = i / user->config.cols;
+    int curr_constraint_col = i % user->config.cols;
+    bool found_unrevealed_neigh = false;
+    for (int m = curr_constraint_row - 1; m <= curr_constraint_row + 1; ++m)
+    {
+      if (m < 0 || m >= user->config.rows)
+        continue;
+      for (int n = curr_constraint_col - 1; n <= curr_constraint_col + 1; ++n)
+      {
+        if (n < 0 || n >= user->config.cols)
+          continue;
+        int neigh_ind = m * user->config.cols + n;
+        char neigh_val = user->revealed_board[neigh_ind];
+        if (neigh_val == ' ')
+        {
+          found_unrevealed_neigh = true;
+          break;
+        }
+      }
+      if (found_unrevealed_neigh)
+        break;
+    }
+
+    if (!found_unrevealed_neigh)
+      continue;
+
     c[k] = val - '0';
     // printf("%g,", c[k]);
     constraint_indices[k++] = i;
@@ -608,8 +369,8 @@ void max_entropy_solution(int sock, struct User *user)
 
   for (int i = 0; i < unrevealed_cnt; ++i)
   {
-    p[i] = 1.;
-    q[i] = 1.;
+    p[i] = 1.f;
+    q[i] = 1.f;
   }
 
   for (int algo_iter = 0; algo_iter < 1000; ++algo_iter)
@@ -618,13 +379,13 @@ void max_entropy_solution(int sock, struct User *user)
     for (int i = 0; i < constraint_cnt - 1; ++i)
     {
       int curr_constrait_ind = constraint_indices[i];
-      double curr_constraint_val = c[i];
+      float curr_constraint_val = c[i];
       int curr_constraint_row = curr_constrait_ind / user->config.cols;
       int curr_constraint_col = curr_constrait_ind % user->config.cols;
 
-      double sum_p = 0.;
-      double sum_q = 0.;
-      double num_unrevealed_neigh = 0;
+      float sum_p = 0.;
+      float sum_q = 0.;
+      float num_unrevealed_neigh = 0;
       for (int m = curr_constraint_row - 1; m <= curr_constraint_row + 1; ++m)
       {
         if (m < 0 || m >= user->config.rows)
@@ -643,6 +404,7 @@ void max_entropy_solution(int sock, struct User *user)
 
           if (neigh_val != ' ')
             continue;
+
           // printf("A neigh_ind %d\n", neigh_ind);
           int neigh_ind2 = binarySearch(unrevealed_indices, 0, unrevealed_cnt - 1, neigh_ind);
           // printf("A neigh_ind2 %d\n", neigh_ind2);
@@ -678,7 +440,7 @@ void max_entropy_solution(int sock, struct User *user)
               MoveByDiff(sock, diff_i, diff_j);
               char ch = ' ';
               send_message(sock, 1, &ch, -1);
-              return;
+              goto CLEANUP;
             }
           }
         }
@@ -690,7 +452,7 @@ void max_entropy_solution(int sock, struct User *user)
       // printf("sum_p %g\n", sum_p);
       // printf("sum_q %g\n", sum_q);
 
-      if (fabs(sum_p - curr_constraint_val) > 0.001)
+      if (fabsf(sum_p - curr_constraint_val) > 0.001f)
       {
         for (int m = curr_constraint_row - 1; m <= curr_constraint_row + 1; ++m)
         {
@@ -713,7 +475,7 @@ void max_entropy_solution(int sock, struct User *user)
         }
       }
 
-      if (fabs(sum_q - num_unrevealed_neigh + curr_constraint_val) > 0.001)
+      if (fabsf(sum_q - num_unrevealed_neigh + curr_constraint_val) > 0.001f)
       {
         for (int m = curr_constraint_row - 1; m <= curr_constraint_row + 1; ++m)
         {
@@ -738,15 +500,15 @@ void max_entropy_solution(int sock, struct User *user)
     }
 
     // last constraint - total mines
-    double sum_p = 0.;
-    double sum_q = 0.;
+    float sum_p = 0.;
+    float sum_q = 0.;
     for (int i = 0; i < unrevealed_cnt; ++i)
     {
       sum_p += p[i];
       sum_q += q[i];
     }
 
-    if (fabs(sum_p - c[constraint_cnt - 1]) > 0.001)
+    if (fabsf(sum_p - c[constraint_cnt - 1]) > 0.001f)
     {
       for (int i = 0; i < unrevealed_cnt; ++i)
       {
@@ -754,7 +516,7 @@ void max_entropy_solution(int sock, struct User *user)
       }
     }
 
-    if (fabs(sum_q - unrevealed_cnt + c[constraint_cnt - 1]) > 0.001)
+    if (fabsf(sum_q - unrevealed_cnt + c[constraint_cnt - 1]) > 0.001f)
     {
       for (int i = 0; i < unrevealed_cnt; ++i)
       {
@@ -764,7 +526,7 @@ void max_entropy_solution(int sock, struct User *user)
 
     for (int i = 0; i < unrevealed_cnt; ++i)
     {
-      double sum = p[i] + q[i];
+      float sum = p[i] + q[i];
       p[i] = p[i] / sum;
       q[i] = q[i] / sum;
     }
@@ -792,7 +554,7 @@ void max_entropy_solution(int sock, struct User *user)
     bool done = true;
     for (int i = 0; i < unrevealed_cnt; ++i)
     {
-      if (fabs(last_p[i] - p[i]) > 0.0001)
+      if (fabsf(last_p[i] - p[i]) > 0.0001f)
       {
         done = false;
         break;
@@ -806,8 +568,8 @@ void max_entropy_solution(int sock, struct User *user)
 
   int argmax = -1;
   int argmin = -1;
-  double max = -1.;
-  double min = 2.;
+  float max = -1.;
+  float min = 2.;
   for (int i = 0; i < unrevealed_cnt; ++i)
   {
     if (max < p[i])
@@ -827,8 +589,8 @@ void max_entropy_solution(int sock, struct User *user)
   if (min < 0.)
     min = 0.;
 
-  double val = max;
-  if (max < 0.99) // && min < (1 - max))
+  float val = max;
+  if (max < 0.99f) // && min < (1 - max))
   {
     val = min;
     // } else {
@@ -837,14 +599,14 @@ void max_entropy_solution(int sock, struct User *user)
   int extreme_cnt = 0;
   for (int i = 0; i < unrevealed_cnt; ++i)
   {
-    extreme_cnt += fabs(p[i] - val) < 0.01;
+    extreme_cnt += fabsf(p[i] - val) < 0.01f;
   }
 
   int *possible_indices = (int *)malloc(sizeof(*possible_indices) * extreme_cnt);
   int ii = 0;
   for (int i = 0; i < unrevealed_cnt; ++i)
   {
-    if (fabs(p[i] - val) >= 0.01)
+    if (fabsf(p[i] - val) >= 0.01f)
       continue;
     possible_indices[ii++] = i;
   }
@@ -857,7 +619,7 @@ void max_entropy_solution(int sock, struct User *user)
   // printf("\n");
 
   char ch = 'f';
-  if (max < 0.99) // && min < (1 - max))
+  if (max < 0.99f) // && min < (1 - max))
   {
     ch = ' ';
   }
@@ -884,20 +646,31 @@ void max_entropy_solution(int sock, struct User *user)
   //   getchar();
   // }
 
-  // if (ch == ' ' && min < 0.01)
+  // if (ch == ' ')
   // {
-  //   printf("definitely not a mine %d,%d\n", row_ind, col_ind);
-  //   getchar();
+  //   if (min < 0.01)
+  //   {
+  //     printf("definitely not a mine %d,%d\n", row_ind, col_ind);
+  //     getchar();
+  //   }
+  //   else
+  //   {
+  //     printf("maybe not a mine %d,%d,%g\n", row_ind, col_ind, min);
+  //     getchar();
+  //   }
   // }
-
   int diff_i = row_ind - user->pos.i;
   int diff_j = col_ind - user->pos.j;
 
   MoveByDiff(sock, diff_i, diff_j);
 
+  // printf("pos %d,%d\n", user->pos.i, user->pos.j);
+  // printf("diff %d,%d\n", diff_i, diff_j);
+
   send_message(sock, 1, &ch, -1);
 
   free(possible_indices);
+CLEANUP:
   free(c);
   free(p);
   free(last_p);
@@ -911,14 +684,6 @@ void run_one_game(int sock, struct User *user, int game_i)
   int num_cells = user->config.rows * user->config.cols;
 
   Init(user);
-
-  // printf("user->patterns_len %zu\n", user->patterns_len);
-  // for (int i = 0; i < user->patterns_len; ++i)
-  // {
-  //   printf("'%s'\n", user->patterns[i]);
-  // }
-  // fflush(stdout);
-  // // return;
 
   char *msg = (char *)malloc(num_cells * sizeof(struct Cell) + sizeof(user->pos));
 
@@ -994,11 +759,11 @@ void run_one_game(int sock, struct User *user, int game_i)
       continue;
     }
 
-    if (CheckForSolution(user, sock))
-    {
-      random_reveal = false;
-      continue;
-    }
+    // if (CheckForSolution(user, sock))
+    // {
+    //   random_reveal = false;
+    //   continue;
+    // }
 
     // if (game_i == 5)
     // {
@@ -1034,7 +799,6 @@ void run_user(int sock, struct User *user)
 
   char c = 'q';
   send_message(sock, 1, &c, -1);
-  // usleep(10000);
 }
 
 void parse_user_from_file(const char *user_file, struct User *user)
