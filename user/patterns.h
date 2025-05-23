@@ -9,6 +9,7 @@
 // 'S' is where we should flag
 // 'E' is where we should reveal
 // 'R' can be anything
+// 'I' is last flag
 
 static char patterns[][50] = {
     "RRRRRRR"
@@ -226,6 +227,38 @@ static char patterns[][50] = {
     // "RRE 1RR"
     // "RRRRRRR"
     // "RRRRRRR",
+
+    "RRRRRRR"
+    "RRS  XR"
+    "RRf41XR"
+    "RRfXXXR"
+    "RRRRRRR"
+    "RRRRRRR"
+    "RRRRRRR",
+
+    "RRRRRRR"
+    "RRRXX R"
+    "RRYf3 R"
+    "RRY2S Y"
+    "RRY2 1Y"
+    "RRfXYYY"
+    "RRRRRRR",
+
+    "RRRRRRR"
+    "RRRRRRR"
+    "RYE  XR"
+    "RY111XR"
+    "RYXXXXR"
+    "RRRRRRR"
+    "RRRRRRR",
+
+    "RRRRRRR"
+    "RRXXXXR"
+    "RR321XR"
+    "RRS  XR"
+    "RRRRRRR"
+    "RRRRRRR"
+    "RRRRRRR",
 };
 static size_t patterns_len = sizeof(patterns) / sizeof(patterns[0]);
 

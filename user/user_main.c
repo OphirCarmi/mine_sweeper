@@ -353,7 +353,7 @@ bool CheckForSolution(struct User *user, int sock)
     return true;
   }
   // printf("all\n");
-  return CheckForAllMines(user, sock);
+  return false ;//CheckForAllMines(user, sock);
 }
 
 void RevealRandomLocation(const struct User *user, int sock)
@@ -463,8 +463,27 @@ void CreatePatterns(struct User *user)
     {
       int8_t *curr_rot = rotations[j];
 
+      bool action_exists = false;
       for (int k = 0; k < pattern_len; ++k)
+      {
         curr_rotated_pattern[k] = curr_pattern[curr_rot[k]];
+        switch (curr_rotated_pattern[k])
+        {
+        case 'S':
+        // FALLTHROUGH
+        case 'E':
+        // FALLTHROUGH
+        case 'I':
+          action_exists = true;
+          break;
+        }
+      }
+
+      if (!action_exists)
+      {
+        printf("Invalid pattern - no action");
+        exit(-9);
+      }
 
       if (AlreadyExists(user->patterns, ind, curr_rotated_pattern))
         continue;
@@ -781,10 +800,10 @@ void max_entropy_solution(int sock, struct User *user)
     min = 0.;
 
   double val = max;
-  if (max < 0.99)// && min < (1 - max))
+  if (max < 0.99) // && min < (1 - max))
   {
     val = min;
-  // } else {
+    // } else {
     // printf("found a max\n");
   }
   int extreme_cnt = 0;
@@ -810,10 +829,12 @@ void max_entropy_solution(int sock, struct User *user)
   // printf("\n");
 
   char ch = 'f';
-  if (max < 0.99)// && min < (1 - max))
+  if (max < 0.99) // && min < (1 - max))
   {
     ch = ' ';
-  } else {
+  }
+  else
+  {
     user->num_flags++;
   }
 
@@ -829,7 +850,14 @@ void max_entropy_solution(int sock, struct User *user)
   // printf("row_ind %d\n", row_ind);
   // printf("col_ind %d\n", col_ind);
 
-  // if (min < 0.01) {
+  // if (ch == 'f')
+  // {
+  //   printf("definitely a mine %d,%d\n", row_ind, col_ind);
+  //   getchar();
+  // }
+
+  // if (ch == ' ' && min < 0.01)
+  // {
   //   printf("definitely not a mine %d,%d\n", row_ind, col_ind);
   //   getchar();
   // }

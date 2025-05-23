@@ -241,8 +241,6 @@ void RevealZeroes(struct Game *game)
         refresh();
 #ifdef SLOW
         usleep(50000);
-#else // SLOW
-        usleep(50);
 #endif // SLOW
       }
 
@@ -278,7 +276,9 @@ bool RevealLocation(struct Game *game)
       DrawBoard(game, true, true);
       printw("\n\nBOOOOOOOOOM!!!! GAME OVER!\n");
       refresh();
+#ifdef SLOW
       sleep(1);
+#endif // SLOW
     }
     return false;
   default:
@@ -330,8 +330,9 @@ bool CheckWin(struct Game *game)
 
     printw("\nYOU WON!!!\n");
     refresh();
-
+#ifdef SLOW
     sleep(1);
+#endif // SLOW
   }
   return true;
 }
@@ -438,7 +439,7 @@ void parse_game_from_file(const char *game_file, struct Game *game, int **indice
   if (f == NULL)
     exit(EXIT_FAILURE);
 
-  int rows,cols;
+  int rows, cols;
   read = fscanf(f, "%dx%d", &rows, &cols);
   if (read != 2 || rows <= 0 || rows > 127 || cols <= 0 || cols > 127)
   {
@@ -452,7 +453,7 @@ void parse_game_from_file(const char *game_file, struct Game *game, int **indice
   long curr = ftell(f);
 
   game->config.mines = 0;
-  int i,j;
+  int i, j;
   while ((read = fscanf(f, "%d,%d", &i, &j)) == 2)
   {
     game->config.mines++;
@@ -465,7 +466,8 @@ void parse_game_from_file(const char *game_file, struct Game *game, int **indice
   int k = 0;
   while ((read = fscanf(f, "%d,%d", &i, &j)) == 2)
   {
-    if (i < 0 || i > 127 || j < 0 || j > 127) exit(-1);
+    if (i < 0 || i > 127 || j < 0 || j > 127)
+      exit(-1);
     (*indices)[k++] = i * game->config.cols + j;
   }
 
@@ -586,9 +588,7 @@ int run_one_game(int sock, const char *game_file_path)
       printw("use `f` to flag an existing mine\n");
       refresh();
 #ifdef SLOW
-        usleep(100000);
-#else // SLOW
-        usleep(10);
+      usleep(100000);
 #endif // SLOW
     }
     char c;
