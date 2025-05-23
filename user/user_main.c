@@ -655,6 +655,34 @@ void max_entropy_solution(int sock, struct User *user)
         }
       }
 
+      if (curr_constraint_val < 0.5)
+      {
+        for (int m = curr_constraint_row - 1; m <= curr_constraint_row + 1; ++m)
+        {
+          if (m < 0 || m >= user->config.rows)
+            continue;
+          for (int n = curr_constraint_col - 1; n <= curr_constraint_col + 1; ++n)
+          {
+            if (n < 0 || n >= user->config.cols)
+              continue;
+            int neigh_ind = m * user->config.cols + n;
+            char neigh_val = user->revealed_board[neigh_ind];
+            if (neigh_val == ' ')
+            {
+              int diff_i = m - user->pos.i;
+              int diff_j = n - user->pos.j;
+
+              // printf("c = 0, definitely not a mine %d,%d\n", m, n);
+              // getchar();
+
+              MoveByDiff(sock, diff_i, diff_j);
+              char ch = ' ';
+              send_message(sock, 1, &ch, -1);
+              return;
+            }
+          }
+        }
+      }
       // printf("curr_constraint_val %g\n", curr_constraint_val);
       // printf("num_unrevealed_neigh %g\n", num_unrevealed_neigh);
       if (curr_constraint_val == 0.)
@@ -915,11 +943,11 @@ void run_one_game(int sock, struct User *user, int game_i)
       break;
     case 2:
       end_game = msg[0] ? Win : Lose;
-      // if (!random_reveal && end_game == Lose)
-      // {
-      //   printf("lost after random reveal\n");
-      //   exit(-1);
-      // }
+      if (!random_reveal && end_game == Lose)
+      {
+        printf("lost after random reveal\n");
+        exit(-1);
+      }
       break;
     }
 
