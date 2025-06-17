@@ -11,6 +11,9 @@ struct _Cell {
 typedef struct _Cell Cell;
 
 static void handle_button_click(Cell* cell, GtkButton* button) {
+  cell->image = (GtkImage*)gtk_image_new_from_file(
+          "images/Minesweeper_1.svg");
+  gtk_button_set_image(button, cell->image);
   g_warning("clicked x=%d, y=%d\n", cell->x, cell->y);
 }
 
@@ -30,7 +33,7 @@ int main(int argc, char* argv[]) {
       cell->x = x;
       cell->y = y;
       cell->image = (GtkImage*)gtk_image_new_from_file(
-          "/home/ophir/Downloads/Minesweeper_1.svg");
+          "images/Minesweeper_0.svg");
       gtk_widget_show(GTK_WIDGET(cell->image));
       button = (GtkButton*)gtk_button_new();
       gtk_container_add(GTK_CONTAINER(button), GTK_WIDGET(cell->image));
