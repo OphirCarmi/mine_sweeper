@@ -8,15 +8,32 @@
 #include <ncurses.h>
 #include <arpa/inet.h>
 #include <locale.h>
+#include <gtk/gtk.h>
+#include <pthread.h>
 
 #include "common/common.h"
 
-// #define SLOW
+#define SLOW
+// #define CURSES
 
 static bool show = false;
 
+struct Game;
+
+struct _Cell {
+  int x;
+  int y;
+  GtkImage* image;
+  struct Game *game;
+};
+typedef struct _Cell Cell;
+
 struct Game
 {
+  pthread_t display_thread;
+
+  Cell***gtk_cells;
+
   int8_t **hidden_board;
 
   bool **is_revealed_board;
@@ -337,6 +354,59 @@ bool CheckWin(struct Game *game)
   return true;
 }
 
+static void handle_button_click(Cell* cell, GtkButton* button) {
+  cell->image = (GtkImage*)gtk_image_new_from_file(
+          "gtk_example/images/Minesweeper_1.svg");
+  gtk_button_set_image(button, GTK_WIDGET(cell->image));
+  g_warning("clicked x=%d, y=%d\n", cell->x, cell->y);
+}
+
+void *init_display_gtk_func(void *args) {
+  struct Game *game = (struct Game *)args;
+
+  GtkWindow* window;
+  GtkTable* table;
+  int x;
+  int y;
+  gtk_init(NULL, NULL);
+  table = (GtkTable*)gtk_table_new(game->config.cols, game->config.rows, TRUE);
+  for (x = 0; x < game->config.cols; ++x)
+    for (y = 0; y < game->config.rows; ++y) {
+      GtkButton* button;
+      Cell* cell;
+      cell = g_malloc0(sizeof(Cell));
+      cell->x = x;
+      cell->y = y;
+      cell->image = (GtkImage*)gtk_image_new_from_file(
+          "gtk_example/images/Minesweeper_0.svg");
+      gtk_widget_show(GTK_WIDGET(cell->image));
+      button = (GtkButton*)gtk_button_new();
+      gtk_container_add(GTK_CONTAINER(button), GTK_WIDGET(cell->image));
+      gtk_widget_show(GTK_WIDGET(button));
+      g_object_set_data(G_OBJECT(button), "cell", cell);
+      game->gtk_cells[x][y] = cell;
+      gtk_table_attach(table, GTK_WIDGET(button), x, x + 1, y, y + 1,
+                       GTK_EXPAND | GTK_FILL, GTK_EXPAND | GTK_FILL, 0, 0);
+      g_signal_connect_swapped(G_OBJECT(button), "clicked",
+                               G_CALLBACK(handle_button_click), cell);
+    }
+  gtk_widget_show(GTK_WIDGET(table));
+  window = (GtkWindow*)gtk_window_new(GTK_WINDOW_TOPLEVEL);
+  g_signal_connect(G_OBJECT(window), "delete-event", G_CALLBACK(gtk_main_quit),
+                   NULL);
+  gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(table));
+  gtk_widget_show(GTK_WIDGET(window));
+  gtk_main();
+}
+
+void init_display_gtk(struct Game *game) {
+  game->gtk_cells = (Cell ***)malloc(game->config.rows * sizeof(*game->gtk_cells));
+  for (int i = 0; i < game->config.rows; ++i)
+    game->gtk_cells[i] = (Cell **)malloc(game->config.cols * sizeof(**game->gtk_cells));
+
+  pthread_create(&game->display_thread, NULL, init_display_gtk_func, (void *)game);
+}
+
 void Init(struct Game *game)
 {
   game->hidden_board = (int8_t **)malloc(game->config.rows * sizeof(*game->hidden_board));
@@ -356,6 +426,8 @@ void Init(struct Game *game)
   game->changed_cells_len = 0;
 
   memset(&game->pos, 0, sizeof(game->pos));
+
+  init_display_gtk(game);
 }
 
 void DeInit(struct Game *game)
@@ -501,11 +573,11 @@ bool GetConfigFromUser(struct Game *game)
       break;
     case '4':
       printw("enter num rows: ");
-      scanw("%d", &game->config.rows);
+      scanw("%c", &game->config.rows);
       if (game->config.rows > INT8_MAX)
         should_continue = true;
       printw("enter num cols: ");
-      scanw("%d", &game->config.cols);
+      scanw("%c", &game->config.cols);
       if (game->config.cols > INT8_MAX)
         should_continue = true;
       printw("enter num mines: ");
@@ -537,20 +609,14 @@ int GetConfig(int sock, struct Game *game, const char *game_file_path, int **ind
   {
     bool should_continue = false;
     if (GetConfigFromSock(game, sock, &should_continue))
-    {
       return 1;
-    }
     if (should_continue)
-    {
       return 2;
-    }
   }
   else
   {
     if (GetConfigFromUser(game))
-    {
       return 1;
-    }
     noecho();
   }
   return 0;
@@ -681,12 +747,8 @@ int run_one_game(int sock, const char *game_file_path)
   return 0;
 }
 
-void run_game(int sock, const char *game_file_path)
-{
-  int ch;
-
-  setlocale(LC_ALL, "");
-
+void init_curses() {
+#ifdef CURSES  
   /* Curses Initialisations */
   initscr();
   use_default_colors();
@@ -696,6 +758,16 @@ void run_game(int sock, const char *game_file_path)
   init_pair(3, -1, COLOR_RED);
   raw();
   keypad(stdscr, TRUE);
+#endif // CURSES  
+}
+
+void run_game(int sock, const char *game_file_path)
+{
+  int ch;
+
+  setlocale(LC_ALL, "");
+
+  init_curses();
 
   // srand(time(NULL));
 
@@ -771,10 +843,7 @@ int main(int argc, char *argv[])
 
   char *game_file_path = NULL;
   if (argc > 3)
-  {
     game_file_path = strdup(argv[3]);
-    // parse_games_from_file(argv[3]);
-  }
 
   int server_fd, new_socket = -1;
   if (should_create_socket)
