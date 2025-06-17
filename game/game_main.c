@@ -501,11 +501,11 @@ bool GetConfigFromUser(struct Game *game)
       break;
     case '4':
       printw("enter num rows: ");
-      scanw("%d", &game->config.rows);
+      scanw("%c", &game->config.rows);
       if (game->config.rows > INT8_MAX)
         should_continue = true;
       printw("enter num cols: ");
-      scanw("%d", &game->config.cols);
+      scanw("%c", &game->config.cols);
       if (game->config.cols > INT8_MAX)
         should_continue = true;
       printw("enter num mines: ");
