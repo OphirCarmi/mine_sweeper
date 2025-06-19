@@ -718,7 +718,7 @@ void run_one_game(int sock, struct User *user, int game_i)
 
     if (end_game)
     {
-      FILE *f = fopen("/Users/user/work/tutorials/mine_sweeper/user.csv", "a");
+      FILE *f = fopen("./user.csv", "a");
       fprintf(f, "end_game,%d,rows,%d,cols,%d,mines,%d\n", end_game, user->config.rows, user->config.cols, user->config.mines);
       fclose(f);
       break;
