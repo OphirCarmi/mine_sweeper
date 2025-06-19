@@ -182,16 +182,23 @@ void reveal_cell(struct Game *game, int i, int j) {
   printf("reveal_cell %s\n",s);
   fflush(stdout);
   
-  // pthread_mutex_lock(&mutex);
-
   gtk_image_set_from_file(cell->image, s);
-  // gtk_button_set_image(game->gtk_buttons[i][j], GTK_WIDGET(cell->image));
-
-  // pthread_mutex_unlock(&mutex);
 }
 
 void reveal_pos_cell(struct Game *game) {
   reveal_cell(game, game->pos.i, game->pos.j);
+}
+
+void flag_pos_cell(struct Game *game) {
+  Cell *cell = game->gtk_cells[game->pos.i][game->pos.j];
+  gtk_image_set_from_file(cell->image, "gtk_example/images/Minesweeper_flag.svg");
+}
+
+void reveal_green_mine(struct Game *game, int i, int j) {
+  if (game->hidden_board[i][j] == -1) {
+    Cell *cell = game->gtk_cells[i][j];
+    gtk_image_set_from_file(cell->image, "gtk_example/images/Minesweeper_-1_green.svg");
+  }
 }
 
 void RevealZeroes(struct Game *game) {
@@ -338,8 +345,10 @@ bool CheckWin(struct Game *game) {
     for (int j = 0; j < game->config.cols; ++j) {
       game->is_revealed_board[i][j] = true;
       reveal_cell(game, i, j);
+      reveal_green_mine(game, i, j);
     }
   }
+
   if (show) {
     DrawBoard(game, false, false);
 
@@ -701,6 +710,7 @@ int run_one_game(int sock, const char *game_file_path) {
         fflush(stdout);
         game.is_flagged_board[game.pos.i][game.pos.j] =
             !game.is_flagged_board[game.pos.i][game.pos.j];
+        flag_pos_cell(&game);
         game.changed_cells[0] = game.pos.i;
         game.changed_cells[1] = game.pos.j;
         game.changed_cells[2] =
