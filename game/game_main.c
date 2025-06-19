@@ -388,11 +388,11 @@ void *init_display_gtk_func(void *args) {
           "gtk_example/images/Minesweeper_unopened_square.svg");
       gtk_widget_show(GTK_WIDGET(cell->image));
       button = (GtkButton *)gtk_button_new();
-      game->gtk_buttons[x][y] = button;
+      game->gtk_buttons[y][x] = button;
       gtk_container_add(GTK_CONTAINER(button), GTK_WIDGET(cell->image));
       gtk_widget_show(GTK_WIDGET(button));
       g_object_set_data(G_OBJECT(button), "cell", cell);
-      game->gtk_cells[x][y] = cell;
+      game->gtk_cells[y][x] = cell;
       gtk_table_attach(table, GTK_WIDGET(button), x, x + 1, y, y + 1,
                        GTK_EXPAND | GTK_FILL, GTK_EXPAND | GTK_FILL, 0, 0);
       // g_signal_connect_swapped(G_OBJECT(button), "clicked",
