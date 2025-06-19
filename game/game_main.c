@@ -201,6 +201,11 @@ void reveal_green_mine(struct Game *game, int i, int j) {
   }
 }
 
+void reveal_red_mine(struct Game *game) {
+  Cell *cell = game->gtk_cells[game->pos.i][game->pos.j];
+  gtk_image_set_from_file(cell->image, "gtk_example/images/Minesweeper_-1_red.svg");
+}
+
 void RevealZeroes(struct Game *game) {
   LIST_HEAD(listhead, entry)
   head;
@@ -294,7 +299,7 @@ bool RevealLocation(struct Game *game) {
       return true;
     case -1:
       game->is_revealed_board[game->pos.i][game->pos.j] = true;
-      reveal_pos_cell(game);
+      reveal_red_mine(game);
       game->changed_cells[0] = game->pos.i;
       game->changed_cells[1] = game->pos.j;
       game->changed_cells[2] = '*';
