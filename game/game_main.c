@@ -257,7 +257,7 @@ void RevealZeroes(struct Game *game) {
         refresh();
       }
 #ifdef SLOW
-      usleep(50000);
+      usleep(100000);
 #endif  // SLOW
 
       if (game->hidden_board[neigh_row_ind][neigh_col_ind] != 0) continue;
