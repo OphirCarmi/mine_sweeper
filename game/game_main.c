@@ -35,6 +35,7 @@ struct Game {
 
   Cell ***gtk_cells;
   GtkButton ***gtk_buttons;
+  GtkWindow *display_window;
 
   int8_t **hidden_board;
 
@@ -175,12 +176,8 @@ void reveal_cell(struct Game *game, int i, int j) {
   Cell *cell = game->gtk_cells[i][j];
   char s[64] = {0};
 
-  printf("reveal_cell %d\n",game->hidden_board[i][j]);
-  fflush(stdout);
   snprintf(s, sizeof(s), "gtk_example/images/Minesweeper_%d.svg",
            (int)game->hidden_board[i][j]);
-  printf("reveal_cell %s\n",s);
-  fflush(stdout);
   
   gtk_image_set_from_file(cell->image, s);
 }
@@ -248,18 +245,12 @@ void RevealZeroes(struct Game *game) {
 
       if (game->is_revealed_board[neigh_row_ind][neigh_col_ind]) continue;
 
-      printf("A RevealZeroes %d\n", k);
-      fflush(stdout);
-
       game->is_revealed_board[neigh_row_ind][neigh_col_ind] = true;
       reveal_cell(game, neigh_row_ind, neigh_col_ind);
 
       *ptr++ = neigh_row_ind;
       *ptr++ = neigh_col_ind;
       *ptr++ = game->hidden_board[neigh_row_ind][neigh_col_ind] + '0';
-
-      printf("B RevealZeroes %d\n", k);
-      fflush(stdout);
 
       if (show) {
         DrawBoard(game, false, false);
@@ -271,17 +262,11 @@ void RevealZeroes(struct Game *game) {
 
       if (game->hidden_board[neigh_row_ind][neigh_col_ind] != 0) continue;
 
-      printf("C RevealZeroes %d\n", k);
-      fflush(stdout);
-
       np = (struct entry *)malloc(
           sizeof(struct entry)); /* Insert at the head. */
       np->row_ind = neigh_row_ind;
       np->col_ind = neigh_col_ind;
       LIST_INSERT_HEAD(&head, np, entries);
-
-      printf("D RevealZeroes %d\n", k);
-      fflush(stdout);
     }
   }
 
@@ -291,8 +276,6 @@ void RevealZeroes(struct Game *game) {
 bool RevealLocation(struct Game *game) {
   // printf("pos %d %d, %d\n", (int)game->pos.i, (int)game->pos.j,
   // (int)game->hidden_board[game->pos.i][game->pos.j]);
-  printf("RevealLocation %d\n", (int)game->hidden_board[game->pos.i][game->pos.j]);
-  fflush(stdout);
   switch (game->hidden_board[game->pos.i][game->pos.j]) {
     case 0:
       RevealZeroes(game);
@@ -326,8 +309,6 @@ bool RevealLocation(struct Game *game) {
 }
 
 bool CheckWin(struct Game *game) {
-  printf("CheckWin\n");
-  fflush(stdout);
   int sum_unrevealed = game->config.rows * game->config.cols;
   for (int i = 0; i < game->config.rows; ++i) {
     for (int j = 0; j < game->config.cols; ++j) {
@@ -376,11 +357,9 @@ static void handle_button_click(Cell *cell, GtkButton *button) {
 void *init_display_gtk_func(void *args) {
   struct Game *game = (struct Game *)args;
 
-  GtkWindow *window;
   GtkTable *table;
   int x;
   int y;
-  gtk_init(NULL, NULL);
   table = (GtkTable *)gtk_table_new(game->config.cols, game->config.rows, TRUE);
   for (x = 0; x < game->config.cols; ++x)
     for (y = 0; y < game->config.rows; ++y) {
@@ -404,11 +383,15 @@ void *init_display_gtk_func(void *args) {
       //                          G_CALLBACK(handle_button_click), cell);
     }
   gtk_widget_show(GTK_WIDGET(table));
-  window = (GtkWindow *)gtk_window_new(GTK_WINDOW_TOPLEVEL);
-  g_signal_connect(G_OBJECT(window), "delete-event", G_CALLBACK(gtk_main_quit),
+  game->display_window = (GtkWindow *)gtk_window_new(GTK_WINDOW_TOPLEVEL);
+  g_signal_connect(G_OBJECT(game->display_window), "delete-event", G_CALLBACK(gtk_main_quit),
                    NULL);
-  gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(table));
-  gtk_widget_show(GTK_WIDGET(window));
+  gtk_container_add(GTK_CONTAINER(game->display_window), GTK_WIDGET(table));
+
+  // gtk_window_set_default_size(GTK_WINDOW(game->display_window), 400, 100);
+  // gtk_window_set_resizable (GTK_WINDOW(game->display_window), FALSE);
+
+  gtk_widget_show(GTK_WIDGET(game->display_window));
   gtk_main();
 }
 
@@ -454,6 +437,19 @@ void Init(struct Game *game) {
   init_display_gtk(game);
 }
 
+void deinit_display_gtk(struct Game *game) {
+  for (int i = 0; i < game->config.rows; ++i) free(game->gtk_buttons[i]);
+  free(game->gtk_buttons);
+
+  for (int i = 0; i < game->config.rows; ++i) free(game->gtk_cells[i]);
+  free(game->gtk_cells);
+
+  gtk_window_close(game->display_window);
+  gtk_main_quit();
+
+  pthread_join(&game->display_thread, NULL);
+}
+
 void DeInit(struct Game *game) {
   for (int i = 0; i < game->config.rows; ++i) free(game->hidden_board[i]);
   free(game->hidden_board);
@@ -465,6 +461,8 @@ void DeInit(struct Game *game) {
   free(game->is_revealed_board);
 
   free(game->changed_cells);
+
+  deinit_display_gtk(game);
 }
 
 void write_revealed_board(struct Game *game, int sock) {
@@ -642,7 +640,7 @@ int run_one_game(int sock, const char *game_file_path) {
   bool board_changed = false;
 
   for (int iter = 0;; ++iter) {
-    printf("iter %d\n", iter);
+    // printf("iter %d\n", iter);
     if (show) {
       DrawBoard(&game, false, board_changed);
 
@@ -679,30 +677,20 @@ int run_one_game(int sock, const char *game_file_path) {
       case 'w':  // up
         curr = game.pos.i - 1;
         if (curr >= 0) game.pos.i = curr;
-        printf("up\n");
-        fflush(stdout);
         break;
       case 'x':  // down
         curr = game.pos.i + 1;
         if (curr < game.config.rows) game.pos.i = curr;
-        printf("down\n");
-        fflush(stdout);
         break;
       case 'a':  // left
         curr = game.pos.j - 1;
         if (curr >= 0) game.pos.j = curr;
-        printf("left\n");
-        fflush(stdout);
         break;
       case 'd':  // right
         curr = game.pos.j + 1;
         if (curr < game.config.cols) game.pos.j = curr;
-        printf("right\n");
-        fflush(stdout);
         break;
       case ' ':
-        printf("reveal\n");
-        fflush(stdout);
         if (first_move) {
           PlaceMines(&game, indices);
           first_move = false;
@@ -711,8 +699,6 @@ int run_one_game(int sock, const char *game_file_path) {
         board_changed = true;
         break;
       case 'f':
-        printf("flag\n");
-        fflush(stdout);
         game.is_flagged_board[game.pos.i][game.pos.j] =
             !game.is_flagged_board[game.pos.i][game.pos.j];
         flag_pos_cell(&game);
@@ -769,7 +755,7 @@ void run_game(int sock, const char *game_file_path) {
   for (int g = 0;; ++g) {
     // if (g > 368) show = true;
 
-    printf("g %d\n", g);
+    // printf("g %d\n", g);
 
     int ret = run_one_game(sock, game_file_path);
     // printf("ret %d\n", ret);
@@ -823,6 +809,8 @@ void CreateSocket(int *server_fd, int *new_socket) {
 }
 
 int main(int argc, char *argv[]) {
+  gtk_init(NULL, NULL);
+
   bool should_create_socket = argc > 1 && !strcmp(argv[1], "socket");
 
   show = argc > 2 && !strcmp(argv[2], "show");
