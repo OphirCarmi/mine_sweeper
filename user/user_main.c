@@ -695,7 +695,7 @@ void run_one_game(int sock, struct User *user, int game_i)
     int len;
     if (!get_message(sock, &msg_type, msg, &len))
     {
-      usleep(10);
+      usleep(1);
       continue;
     }
 

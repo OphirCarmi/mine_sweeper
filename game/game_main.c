@@ -15,8 +15,8 @@
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-#define SLOW
-// #define CURSES
+// #define SLOW
+#define CURSES
 
 static bool show = false;
 
@@ -221,7 +221,7 @@ void RevealZeroes(struct Game *game) {
   LIST_INSERT_HEAD(&head, np, entries);
 
   game->is_revealed_board[game->pos.i][game->pos.j] = true;
-  reveal_pos_cell(game);
+  if (show) reveal_pos_cell(game);
 
   char *ptr = game->changed_cells;
   *ptr++ = game->pos.i;
@@ -246,13 +246,14 @@ void RevealZeroes(struct Game *game) {
       if (game->is_revealed_board[neigh_row_ind][neigh_col_ind]) continue;
 
       game->is_revealed_board[neigh_row_ind][neigh_col_ind] = true;
-      reveal_cell(game, neigh_row_ind, neigh_col_ind);
-
+      
       *ptr++ = neigh_row_ind;
       *ptr++ = neigh_col_ind;
       *ptr++ = game->hidden_board[neigh_row_ind][neigh_col_ind] + '0';
-
+      
       if (show) {
+        reveal_cell(game, neigh_row_ind, neigh_col_ind);
+
         DrawBoard(game, false, false);
         refresh();
       }
@@ -282,12 +283,13 @@ bool RevealLocation(struct Game *game) {
       return true;
     case -1:
       game->is_revealed_board[game->pos.i][game->pos.j] = true;
-      reveal_red_mine(game);
       game->changed_cells[0] = game->pos.i;
       game->changed_cells[1] = game->pos.j;
       game->changed_cells[2] = '*';
       game->changed_cells_len = 1;
       if (show) {
+        reveal_red_mine(game);
+
         DrawBoard(game, true, true);
         printw("\n\nBOOOOOOOOOM!!!! GAME OVER!\n");
         refresh();
@@ -298,7 +300,7 @@ bool RevealLocation(struct Game *game) {
       return false;
     default:
       game->is_revealed_board[game->pos.i][game->pos.j] = true;
-      reveal_pos_cell(game);
+      if (show) reveal_pos_cell(game);
       game->changed_cells[0] = game->pos.i;
       game->changed_cells[1] = game->pos.j;
       game->changed_cells[2] =
@@ -330,8 +332,10 @@ bool CheckWin(struct Game *game) {
   for (int i = 0; i < game->config.rows; ++i) {
     for (int j = 0; j < game->config.cols; ++j) {
       game->is_revealed_board[i][j] = true;
-      reveal_cell(game, i, j);
-      reveal_green_mine(game, i, j);
+      if (show) {
+        reveal_cell(game, i, j);
+        reveal_green_mine(game, i, j);
+      }
     }
   }
 
@@ -434,7 +438,7 @@ void Init(struct Game *game) {
 
   memset(&game->pos, 0, sizeof(game->pos));
 
-  init_display_gtk(game);
+  if (show) init_display_gtk(game);
 }
 
 void deinit_display_gtk(struct Game *game) {
@@ -462,7 +466,7 @@ void DeInit(struct Game *game) {
 
   free(game->changed_cells);
 
-  deinit_display_gtk(game);
+  if (show) deinit_display_gtk(game);
 }
 
 void write_revealed_board(struct Game *game, int sock) {
@@ -502,7 +506,7 @@ bool GetConfigFromSock(struct Game *game, int sock, bool *should_continue) {
   char msg[sizeof(game->config)];
   int8_t msg_type;
   if (!get_message(sock, &msg_type, msg, NULL)) {
-    usleep(10);
+    usleep(1);
     *should_continue = true;
     return false;
   }
@@ -658,7 +662,7 @@ int run_one_game(int sock, const char *game_file_path) {
     int8_t msg_type;
     if (sock >= 0) {
       if (!get_message(sock, &msg_type, &c, NULL)) {
-        usleep(10);
+        usleep(1);
         continue;
       }
     } else {
@@ -701,7 +705,7 @@ int run_one_game(int sock, const char *game_file_path) {
       case 'f':
         game.is_flagged_board[game.pos.i][game.pos.j] =
             !game.is_flagged_board[game.pos.i][game.pos.j];
-        flag_pos_cell(&game);
+        if (show) flag_pos_cell(&game);
         game.changed_cells[0] = game.pos.i;
         game.changed_cells[1] = game.pos.j;
         game.changed_cells[2] =
@@ -731,6 +735,7 @@ int run_one_game(int sock, const char *game_file_path) {
 
 void init_curses() {
 #ifdef CURSES
+  setlocale(LC_ALL, "");
   /* Curses Initialisations */
   initscr();
   use_default_colors();
@@ -746,9 +751,7 @@ void init_curses() {
 void run_game(int sock, const char *game_file_path) {
   int ch;
 
-  setlocale(LC_ALL, "");
-
-  init_curses();
+  if (show) init_curses();
 
   // srand(time(NULL));
 
@@ -763,7 +766,7 @@ void run_game(int sock, const char *game_file_path) {
     if (ret < 0) break;
   }
 
-  endwin();
+  if (show) endwin();
 }
 
 void CreateSocket(int *server_fd, int *new_socket) {
@@ -809,11 +812,13 @@ void CreateSocket(int *server_fd, int *new_socket) {
 }
 
 int main(int argc, char *argv[]) {
-  gtk_init(NULL, NULL);
-
+  
   bool should_create_socket = argc > 1 && !strcmp(argv[1], "socket");
-
+  
   show = argc > 2 && !strcmp(argv[2], "show");
+  
+  if (show)
+    gtk_init(NULL, NULL);
 
   char *game_file_path = NULL;
   if (argc > 3) game_file_path = strdup(argv[3]);
