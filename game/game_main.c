@@ -15,8 +15,8 @@
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-// #define SLOW
-#define CURSES
+#define SLOW
+// #define USE_NCURSES
 
 static bool show = false;
 
@@ -407,10 +407,10 @@ void init_display_gtk(struct Game *game) {
         (Cell **)malloc(game->config.cols * sizeof(**game->gtk_cells));
 
   game->gtk_buttons =
-      (Cell ***)malloc(game->config.rows * sizeof(*game->gtk_buttons));
+      (GtkButton ***)malloc(game->config.rows * sizeof(*game->gtk_buttons));
   for (int i = 0; i < game->config.rows; ++i)
     game->gtk_buttons[i] =
-        (Cell **)malloc(game->config.cols * sizeof(**game->gtk_buttons));
+        (GtkButton **)malloc(game->config.cols * sizeof(**game->gtk_buttons));
 
   pthread_create(&game->display_thread, NULL, init_display_gtk_func,
                  (void *)game);
@@ -451,7 +451,7 @@ void deinit_display_gtk(struct Game *game) {
   gtk_window_close(game->display_window);
   gtk_main_quit();
 
-  pthread_join(&game->display_thread, NULL);
+  pthread_join(game->display_thread, NULL);
 }
 
 void DeInit(struct Game *game) {
@@ -734,7 +734,7 @@ int run_one_game(int sock, const char *game_file_path) {
 }
 
 void init_curses() {
-#ifdef CURSES
+#ifdef USE_NCURSES
   setlocale(LC_ALL, "");
   /* Curses Initialisations */
   initscr();
@@ -745,7 +745,7 @@ void init_curses() {
   init_pair(3, -1, COLOR_RED);
   raw();
   keypad(stdscr, TRUE);
-#endif  // CURSES
+#endif  // USE_NCURSES
 }
 
 void run_game(int sock, const char *game_file_path) {
@@ -812,7 +812,6 @@ void CreateSocket(int *server_fd, int *new_socket) {
 }
 
 int main(int argc, char *argv[]) {
-  
   bool should_create_socket = argc > 1 && !strcmp(argv[1], "socket");
   
   show = argc > 2 && !strcmp(argv[2], "show");
