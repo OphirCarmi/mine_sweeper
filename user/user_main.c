@@ -599,7 +599,9 @@ void max_entropy_solution(int sock, struct User *user)
   int extreme_cnt = 0;
   for (int i = 0; i < unrevealed_cnt; ++i)
   {
-    extreme_cnt += fabsf(p[i] - val) < 0.01f;
+    if (fabsf(p[i] - val) >= 0.01f)
+      continue;
+    extreme_cnt++;
   }
 
   int *possible_indices = (int *)malloc(sizeof(*possible_indices) * extreme_cnt);
@@ -852,6 +854,7 @@ void parse_user_from_file(const char *user_file, struct User *user)
 int main(int argc, char *argv[])
 {
   struct User user;
+  memset(&user, 0, sizeof(user));
   user.steps = NULL;
 
   switch (argv[1][0])

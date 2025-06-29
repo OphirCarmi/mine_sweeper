@@ -15,7 +15,6 @@
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-#define SLOW
 // #define USE_NCURSES
 
 static bool show = false;
@@ -256,10 +255,8 @@ void RevealZeroes(struct Game *game) {
 
         DrawBoard(game, false, false);
         refresh();
+        usleep(100000);
       }
-#ifdef SLOW
-      usleep(100000);
-#endif  // SLOW
 
       if (game->hidden_board[neigh_row_ind][neigh_col_ind] != 0) continue;
 
@@ -293,10 +290,8 @@ bool RevealLocation(struct Game *game) {
         DrawBoard(game, true, true);
         printw("\n\nBOOOOOOOOOM!!!! GAME OVER!\n");
         refresh();
+        sleep(1);
       }
-#ifdef SLOW
-      sleep(1);
-#endif  // SLOW
       return false;
     default:
       game->is_revealed_board[game->pos.i][game->pos.j] = true;
@@ -344,10 +339,8 @@ bool CheckWin(struct Game *game) {
 
     printw("\nYOU WON!!!\n");
     refresh();
+    sleep(1);
   }
-#ifdef SLOW
-  sleep(1);
-#endif  // SLOW
   return true;
 }
 
@@ -654,10 +647,9 @@ int run_one_game(int sock, const char *game_file_path) {
       printw("use space bar to reveal\n");
       printw("use `f` to flag an existing mine\n");
       refresh();
+      usleep(100000);
     }
-#ifdef SLOW
-    usleep(100000);
-#endif  // SLOW
+
     char c;
     int8_t msg_type;
     if (sock >= 0) {
