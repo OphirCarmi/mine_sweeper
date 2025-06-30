@@ -24,6 +24,11 @@ struct User
   struct GameConfig config;
 };
 
+struct Ind {
+  int ind_of_num_cells;
+  int ind_of_unrevealed;
+};
+
 void MoveByDiff(int sock, int diff_i, int diff_j)
 {
   for (int m = 0; m < diff_i; ++m)
@@ -233,18 +238,18 @@ void DeInit(struct User *user)
 }
 
 // An iterative binary search function.
-int binarySearch(int *arr, int low, int high, int x)
+int binarySearch(struct Ind *arr, int low, int high, int x)
 {
   while (low <= high)
   {
     int mid = low + (high - low) / 2;
 
     // Check if x is present at mid
-    if (arr[mid] == x)
+    if (arr[mid].ind_of_num_cells == x)
       return mid;
 
     // If x greater, ignore left half
-    if (arr[mid] < x)
+    if (arr[mid].ind_of_num_cells < x)
       low = mid + 1;
 
     // If x is smaller, ignore right half
@@ -260,21 +265,73 @@ void max_entropy_solution(int sock, struct User *user)
 {
   int num_cells = user->config.rows * user->config.cols;
   int unrevealed_cnt = 0;
+  int unrevealed_with_constraint_cnt = 0;
   // get unrevealed count
   for (int i = 0; i < num_cells; ++i)
   {
-    unrevealed_cnt += user->revealed_board[i] == ' ';
+    if (user->revealed_board[i] != ' ')
+      continue;
+    unrevealed_cnt++;
+    
+    int curr_constraint_row = i / user->config.cols;
+    int curr_constraint_col = i % user->config.cols;
+    bool found_constraint_neigh = false;
+    for (int m = curr_constraint_row - 1; m <= curr_constraint_row + 1; ++m)
+    {
+      if (m < 0 || m >= user->config.rows)
+        continue;
+      for (int n = curr_constraint_col - 1; n <= curr_constraint_col + 1; ++n)
+      {
+        if (n < 0 || n >= user->config.cols)
+          continue;
+        int neigh_ind = m * user->config.cols + n;
+        char neigh_val = user->revealed_board[neigh_ind];
+        if (neigh_val < '1' || neigh_val > '8') continue;
+        unrevealed_with_constraint_cnt++;
+        found_constraint_neigh = true;
+        break;
+      }
+      if (found_constraint_neigh)
+        break;
+    }
   }
 
   int *unrevealed_indices = (int *)malloc(unrevealed_cnt * sizeof(*unrevealed_indices));
+  struct Ind *unrevealed_with_constraint_indices = (struct Ind *)malloc(unrevealed_with_constraint_cnt * sizeof(*unrevealed_with_constraint_indices));
   int k = 0;
+  int g = 0;
   // get unrevealed indices
   // printf("unrevealed_indices ");
   for (int i = 0; i < num_cells; ++i)
   {
     if (user->revealed_board[i] != ' ')
       continue;
-    unrevealed_indices[k++] = i;
+    unrevealed_indices[k] = i;
+
+    int curr_constraint_row = i / user->config.cols;
+    int curr_constraint_col = i % user->config.cols;
+    bool found_constraint_neigh = false;
+    for (int m = curr_constraint_row - 1; m <= curr_constraint_row + 1; ++m)
+    {
+      if (m < 0 || m >= user->config.rows)
+        continue;
+      for (int n = curr_constraint_col - 1; n <= curr_constraint_col + 1; ++n)
+      {
+        if (n < 0 || n >= user->config.cols)
+          continue;
+        int neigh_ind = m * user->config.cols + n;
+        char neigh_val = user->revealed_board[neigh_ind];
+        if (neigh_val < '1' || neigh_val > '8') continue;
+        struct Ind *curr = &unrevealed_with_constraint_indices[g++];
+        curr->ind_of_num_cells = i;
+        curr->ind_of_unrevealed = k;
+        found_constraint_neigh = true;
+        break;
+      }
+      if (found_constraint_neigh)
+        break;
+    }
+    k++;
     // printf("%d,", i);
   }
   // printf("\n");
@@ -406,13 +463,14 @@ void max_entropy_solution(int sock, struct User *user)
             continue;
 
           // printf("A neigh_ind %d\n", neigh_ind);
-          int neigh_ind2 = binarySearch(unrevealed_indices, 0, unrevealed_cnt - 1, neigh_ind);
+          int neigh_ind2 = binarySearch(unrevealed_with_constraint_indices, 0, unrevealed_with_constraint_cnt - 1, neigh_ind);
           // printf("A neigh_ind2 %d\n", neigh_ind2);
           if (neigh_ind2 < 0)
             exit(-3);
           // printf("p[neigh_ind2] %g\n", p[neigh_ind2]);
-          sum_p += p[neigh_ind2];
-          sum_q += q[neigh_ind2];
+          int neigh_ind3 = unrevealed_with_constraint_indices[neigh_ind2].ind_of_unrevealed;
+          sum_p += p[neigh_ind3];
+          sum_q += q[neigh_ind3];
           num_unrevealed_neigh++;
         }
       }
@@ -466,11 +524,12 @@ void max_entropy_solution(int sock, struct User *user)
             if (user->revealed_board[neigh_ind] != ' ')
               continue;
             // printf("B neigh_ind %d\n", neigh_ind);
-            int neigh_ind2 = binarySearch(unrevealed_indices, 0, unrevealed_cnt - 1, neigh_ind);
+            int neigh_ind2 = binarySearch(unrevealed_with_constraint_indices, 0, unrevealed_with_constraint_cnt - 1, neigh_ind);
             // printf("B neigh_ind2 %d\n", neigh_ind2);
             if (neigh_ind2 < 0)
               exit(-3);
-            p[neigh_ind2] *= curr_constraint_val / sum_p;
+            int neigh_ind3 = unrevealed_with_constraint_indices[neigh_ind2].ind_of_unrevealed;
+            p[neigh_ind3] *= curr_constraint_val / sum_p;
           }
         }
       }
@@ -489,11 +548,12 @@ void max_entropy_solution(int sock, struct User *user)
             if (user->revealed_board[neigh_ind] != ' ')
               continue;
             // printf("C neigh_ind %d\n", neigh_ind);
-            int neigh_ind2 = binarySearch(unrevealed_indices, 0, unrevealed_cnt - 1, neigh_ind);
+            int neigh_ind2 = binarySearch(unrevealed_with_constraint_indices, 0, unrevealed_with_constraint_cnt - 1, neigh_ind);
             // printf("C neigh_ind2 %d\n", neigh_ind2);
             if (neigh_ind2 < 0)
               exit(-3);
-            q[neigh_ind2] *= (num_unrevealed_neigh - curr_constraint_val) / sum_q;
+            int neigh_ind3 = unrevealed_with_constraint_indices[neigh_ind2].ind_of_unrevealed;
+            q[neigh_ind3] *= (num_unrevealed_neigh - curr_constraint_val) / sum_q;
           }
         }
       }
@@ -678,6 +738,7 @@ CLEANUP:
   free(last_p);
   free(q);
   free(unrevealed_indices);
+  free(unrevealed_with_constraint_indices);
   free(constraint_indices);
 }
 
