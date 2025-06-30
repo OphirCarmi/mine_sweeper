@@ -280,7 +280,7 @@ void max_entropy_solution(int sock, struct User *user)
   // printf("\n");
 
   float *p = (float *)malloc(unrevealed_cnt * sizeof(*p));
-  float *last_p = (float *)malloc(unrevealed_cnt * sizeof(*last_p));
+  float *last_p = (float *)calloc(unrevealed_cnt, sizeof(*last_p));
   float *q = (float *)malloc(unrevealed_cnt * sizeof(*q));
 
   // set to 1 as we know the number of total mines
