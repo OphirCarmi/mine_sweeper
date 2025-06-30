@@ -296,6 +296,23 @@ void max_entropy_solution(int sock, struct User *user)
     }
   }
 
+  if (!unrevealed_with_constraint_cnt) {
+    // no constraints
+    int i = rand() % num_cells;
+    int m = i / user->config.cols; 
+    int n = i % user->config.cols; 
+    int diff_i = m - user->pos.i;
+    int diff_j = n - user->pos.j;
+
+    // printf("c = 0, definitely not a mine %d,%d\n", m, n);
+    // getchar();
+
+    MoveByDiff(sock, diff_i, diff_j);
+    char ch = ' ';
+    send_message(sock, 1, &ch, -1);
+    return;
+  }
+
   int *unrevealed_indices = (int *)malloc(unrevealed_cnt * sizeof(*unrevealed_indices));
   struct Ind *unrevealed_with_constraint_indices = (struct Ind *)malloc(unrevealed_with_constraint_cnt * sizeof(*unrevealed_with_constraint_indices));
   int k = 0;
@@ -630,17 +647,18 @@ void max_entropy_solution(int sock, struct User *user)
   int argmin = -1;
   float max = -1.;
   float min = 2.;
-  for (int i = 0; i < unrevealed_cnt; ++i)
+  for (int i = 0; i < unrevealed_with_constraint_cnt; ++i)
   {
-    if (max < p[i])
+    int ind = unrevealed_with_constraint_indices[i].ind_of_unrevealed;
+    if (max < p[ind])
     {
-      argmax = i;
-      max = p[i];
+      argmax = ind;
+      max = p[ind];
     }
-    if (min > p[i])
+    if (min > p[ind])
     {
-      argmin = i;
-      min = p[i];
+      argmin = ind;
+      min = p[ind];
     }
   }
 
@@ -657,20 +675,22 @@ void max_entropy_solution(int sock, struct User *user)
     // printf("found a max\n");
   }
   int extreme_cnt = 0;
-  for (int i = 0; i < unrevealed_cnt; ++i)
+  for (int i = 0; i < unrevealed_with_constraint_cnt; ++i)
   {
-    if (fabsf(p[i] - val) >= 0.01f)
+    int ind = unrevealed_with_constraint_indices[i].ind_of_unrevealed;
+    if (fabsf(p[ind] - val) >= 0.01f)
       continue;
     extreme_cnt++;
   }
 
   int *possible_indices = (int *)malloc(sizeof(*possible_indices) * extreme_cnt);
   int ii = 0;
-  for (int i = 0; i < unrevealed_cnt; ++i)
+  for (int i = 0; i < unrevealed_with_constraint_cnt; ++i)
   {
-    if (fabsf(p[i] - val) >= 0.01f)
+    int ind = unrevealed_with_constraint_indices[i].ind_of_unrevealed;
+    if (fabsf(p[ind] - val) >= 0.01f)
       continue;
-    possible_indices[ii++] = i;
+    possible_indices[ii++] = ind;
   }
 
   // printf("possible_indices ");
