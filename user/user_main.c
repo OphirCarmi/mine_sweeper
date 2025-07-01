@@ -272,7 +272,7 @@ void max_entropy_solution(int sock, struct User *user)
     if (user->revealed_board[i] != ' ')
       continue;
     unrevealed_cnt++;
-    
+
     int curr_constraint_row = i / user->config.cols;
     int curr_constraint_col = i % user->config.cols;
     bool found_constraint_neigh = false;
@@ -299,8 +299,8 @@ void max_entropy_solution(int sock, struct User *user)
   if (!unrevealed_with_constraint_cnt) {
     // no constraints
     int i = rand() % num_cells;
-    int m = i / user->config.cols; 
-    int n = i % user->config.cols; 
+    int m = i / user->config.cols;
+    int n = i % user->config.cols;
     int diff_i = m - user->pos.i;
     int diff_j = n - user->pos.j;
 
@@ -354,7 +354,7 @@ void max_entropy_solution(int sock, struct User *user)
   // printf("\n");
 
   float *p = (float *)malloc(unrevealed_cnt * sizeof(*p));
-  float *last_p = (float *)calloc(unrevealed_cnt, sizeof(*last_p));
+  float *last_p = (float *)calloc(unrevealed_with_constraint_cnt, sizeof(*last_p));
   float *q = (float *)malloc(unrevealed_cnt * sizeof(*q));
 
   // set to 1 as we know the number of total mines
@@ -629,9 +629,10 @@ void max_entropy_solution(int sock, struct User *user)
     // printf("\n");
 
     bool done = true;
-    for (int i = 0; i < unrevealed_cnt; ++i)
+    for (int i = 0; i < unrevealed_with_constraint_cnt; ++i)
     {
-      if (fabsf(last_p[i] - p[i]) > 0.0001f)
+      int ind = unrevealed_with_constraint_indices[i].ind_of_unrevealed;
+      if (fabsf(last_p[i] - p[ind]) > 0.0001f)
       {
         done = false;
         break;
@@ -640,7 +641,11 @@ void max_entropy_solution(int sock, struct User *user)
     if (done)
       break;
 
-    memcpy(last_p, p, unrevealed_cnt * sizeof(*p));
+    for (int i = 0; i < unrevealed_with_constraint_cnt; ++i)
+    {
+      int ind = unrevealed_with_constraint_indices[i].ind_of_unrevealed;
+      last_p[i] = p[ind];
+    }
   }
 
   int argmax = -1;
