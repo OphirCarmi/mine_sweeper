@@ -810,8 +810,10 @@ void CreateSocket(int *server_fd, int *new_socket) {
 int main(int argc, char *argv[]) {
   bool should_create_socket = false;
   for (int i = 1; i < argc; ++i) {
-    should_create_socket = !strcmp(argv[i], "socket");
-    show = !strcmp(argv[i], "show");
+    if (!strcmp(argv[i], "socket"))
+      should_create_socket = true;
+    else if (!strcmp(argv[i], "show"))
+      show = true;
   }
  
   if (show)
