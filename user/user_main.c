@@ -652,18 +652,17 @@ void max_entropy_solution(int sock, struct User *user)
   int argmin = -1;
   float max = -1.;
   float min = 2.;
-  for (int i = 0; i < unrevealed_with_constraint_cnt; ++i)
+  for (int i = 0; i < unrevealed_cnt; ++i)
   {
-    int ind = unrevealed_with_constraint_indices[i].ind_of_unrevealed;
-    if (max < p[ind])
+    if (max < p[i])
     {
-      argmax = ind;
-      max = p[ind];
+      argmax = i;
+      max = p[i];
     }
-    if (min > p[ind])
+    if (min > p[i])
     {
-      argmin = ind;
-      min = p[ind];
+      argmin = i;
+      min = p[i];
     }
   }
 
@@ -673,30 +672,33 @@ void max_entropy_solution(int sock, struct User *user)
     min = 0.;
 
   float val = max;
-  if (max < 0.99f) // && min < (1 - max))
+  int arg = argmax;
+  bool is_min = max < 0.99f;
+  if (is_min) // && min < (1 - max))
   {
     val = min;
+    arg = argmin;
     // } else {
     // printf("found a max\n");
   }
-  int extreme_cnt = 0;
-  for (int i = 0; i < unrevealed_with_constraint_cnt; ++i)
-  {
-    int ind = unrevealed_with_constraint_indices[i].ind_of_unrevealed;
-    if (fabsf(p[ind] - val) >= 0.01f)
-      continue;
-    extreme_cnt++;
-  }
+  // int extreme_cnt = 0;
+  // for (int i = 0; i < unrevealed_with_constraint_cnt; ++i)
+  // {
+  //   int ind = unrevealed_with_constraint_indices[i].ind_of_unrevealed;
+  //   if (fabsf(p[ind] - val) >= 0.01f)
+  //     continue;
+  //   extreme_cnt++;
+  // }
 
-  int *possible_indices = (int *)malloc(sizeof(*possible_indices) * extreme_cnt);
-  int ii = 0;
-  for (int i = 0; i < unrevealed_with_constraint_cnt; ++i)
-  {
-    int ind = unrevealed_with_constraint_indices[i].ind_of_unrevealed;
-    if (fabsf(p[ind] - val) >= 0.01f)
-      continue;
-    possible_indices[ii++] = ind;
-  }
+  // int *possible_indices = (int *)malloc(sizeof(*possible_indices) * extreme_cnt);
+  // int ii = 0;
+  // for (int i = 0; i < unrevealed_with_constraint_cnt; ++i)
+  // {
+  //   int ind = unrevealed_with_constraint_indices[i].ind_of_unrevealed;
+  //   if (fabsf(p[ind] - val) >= 0.01f)
+  //     continue;
+  //   possible_indices[ii++] = ind;
+  // }
 
   // printf("possible_indices ");
   // for (int i = 0; i < extreme_cnt; ++i)
@@ -706,7 +708,7 @@ void max_entropy_solution(int sock, struct User *user)
   // printf("\n");
 
   char ch = 'f';
-  if (max < 0.99f) // && min < (1 - max))
+  if (is_min) // && min < (1 - max))
   {
     ch = ' ';
   }
@@ -715,11 +717,11 @@ void max_entropy_solution(int sock, struct User *user)
     user->num_flags++;
   }
 
-  int ind = possible_indices[rand() % extreme_cnt];
+  // int ind = possible_indices[rand() % extreme_cnt];
   // printf("ind %d\n", ind);
 
   // TODO(oc) : multiple values the same as max/min random
-  int ind2 = unrevealed_indices[ind];
+  int ind2 = unrevealed_indices[arg];
   // printf("ind2 %d\n", ind2);
 
   int row_ind = ind2 / user->config.cols;
@@ -756,7 +758,7 @@ void max_entropy_solution(int sock, struct User *user)
 
   send_message(sock, 1, &ch, -1);
 
-  free(possible_indices);
+  // free(possible_indices);
 CLEANUP:
   free(c);
   free(p);
