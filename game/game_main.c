@@ -15,7 +15,7 @@
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-// #define USE_NCURSES
+#define USE_NCURSES
 
 static bool show = false;
 
@@ -253,8 +253,8 @@ void RevealZeroes(struct Game *game) {
       if (show) {
         reveal_cell(game, neigh_row_ind, neigh_col_ind);
 
-        DrawBoard(game, false, false);
-        refresh();
+        // DrawBoard(game, false, false);
+        // refresh();
         usleep(100000);
       }
 
@@ -287,9 +287,9 @@ bool RevealLocation(struct Game *game) {
       if (show) {
         reveal_red_mine(game);
 
-        DrawBoard(game, true, true);
-        printw("\n\nBOOOOOOOOOM!!!! GAME OVER!\n");
-        refresh();
+        // DrawBoard(game, true, true);
+        // printw("\n\nBOOOOOOOOOM!!!! GAME OVER!\n");
+        // refresh();
         sleep(1);
       }
       return false;
@@ -335,10 +335,10 @@ bool CheckWin(struct Game *game) {
   }
 
   if (show) {
-    DrawBoard(game, false, false);
+    // DrawBoard(game, false, false);
 
-    printw("\nYOU WON!!!\n");
-    refresh();
+    // printw("\nYOU WON!!!\n");
+    // refresh();
     sleep(1);
   }
   return true;
@@ -357,7 +357,10 @@ void *init_display_gtk_func(void *args) {
   GtkTable *table;
   int x;
   int y;
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#pragma GCC diagnostic push
   table = (GtkTable *)gtk_table_new(game->config.cols, game->config.rows, TRUE);
+#pragma GCC diagnostic pop
   for (x = 0; x < game->config.cols; ++x)
     for (y = 0; y < game->config.rows; ++y) {
       GtkButton *button;
@@ -639,14 +642,14 @@ int run_one_game(int sock, const char *game_file_path) {
   for (int iter = 0;; ++iter) {
     // printf("iter %d\n", iter);
     if (show) {
-      DrawBoard(&game, false, board_changed);
+      // DrawBoard(&game, false, board_changed);
 
-      // נבקש קלט מהמשתמש/ת
-      printw("\nquit anytime with \"q\"\n\n");
-      printw("use 'w'=up, 'd'=right, 'x'=down, 'a'=left to move\n");
-      printw("use space bar to reveal\n");
-      printw("use `f` to flag an existing mine\n");
-      refresh();
+      // // נבקש קלט מהמשתמש/ת
+      // printw("\nquit anytime with \"q\"\n\n");
+      // printw("use 'w'=up, 'd'=right, 'x'=down, 'a'=left to move\n");
+      // printw("use space bar to reveal\n");
+      // printw("use `f` to flag an existing mine\n");
+      // refresh();
       usleep(100000);
     }
 
@@ -804,10 +807,12 @@ void CreateSocket(int *server_fd, int *new_socket) {
 }
 
 int main(int argc, char *argv[]) {
-  bool should_create_socket = argc > 1 && !strcmp(argv[1], "socket");
-  
-  show = argc > 2 && !strcmp(argv[2], "show");
-  
+  bool should_create_socket = false;
+  for (int i = 1; i < argc; ++i) {
+    should_create_socket = !strcmp(argv[i], "socket");
+    show = !strcmp(argv[i], "show");
+  }
+ 
   if (show)
     gtk_init(NULL, NULL);
 
