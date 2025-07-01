@@ -557,6 +557,7 @@ void parse_game_from_file(const char *game_file, struct Game *game,
 bool GetConfigFromUser(struct Game *game) {
   printw(
       "enter level (1/2/3/4)\n1: Easy\n2: Intermediate\n3: Hard\n4: Custom\n");
+  refresh();
   bool should_exit = false;
   for (;;) {
     int key = getch();
