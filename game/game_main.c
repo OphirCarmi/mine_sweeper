@@ -49,6 +49,15 @@ struct Game {
   struct GameConfig config;
 };
 
+struct entry {
+  int row_ind;
+  int col_ind;
+  LIST_ENTRY(entry)
+  entries; /* List. */
+};
+
+LIST_HEAD(listhead, entry);
+
 void GenerateRandomMines(struct Game *game, int **indices) {
   int num_cells = game->config.rows * game->config.cols;
   *indices = (int *)malloc(sizeof(*indices) * (num_cells - 1));
@@ -99,77 +108,77 @@ void PlaceMines(struct Game *game, int *indices_from_file) {
   free(indices);
 }
 
-void SetColor(struct Game *game, int i, int j, bool red) {
-  if (game->pos.i == i && game->pos.j == j) {
-    if (red)
-      attrset(COLOR_PAIR(3));
-    else
-      attrset(COLOR_PAIR(1));
-  } else {
-    attrset(COLOR_PAIR(2));
-  }
-}
+// void SetColor(struct Game *game, int i, int j, bool red) {
+//   if (game->pos.i == i && game->pos.j == j) {
+//     if (red)
+//       attrset(COLOR_PAIR(3));
+//     else
+//       attrset(COLOR_PAIR(1));
+//   } else {
+//     attrset(COLOR_PAIR(2));
+//   }
+// }
 
-void PrintCellValue(struct Game *game, int i, int j, bool red,
-                    bool board_changed) {
-  if (board_changed) SetColor(game, i, j, red);
-  printw(" ");
-  SetColor(game, i, j, red);
+// void PrintCellValue(struct Game *game, int i, int j, bool red,
+//                     bool board_changed) {
+//   if (board_changed) SetColor(game, i, j, red);
+//   printw(" ");
+//   SetColor(game, i, j, red);
 
-  // נבדוק שהתא הזה כבר חשוף למשתמש
-  if (game->is_revealed_board[i][j]) {
-    if (game->hidden_board[i][j] == -1) {
-      // אם הוא מוקש נסמנו בהתאם
-      printw("*");
-    } else {
-      // אם הוא לא מוקש נדפיס למשתמש/ת את ערכו
-      printw("%d", game->hidden_board[i][j]);
-    }
-  } else {
-    if (game->is_flagged_board[i][j]) {
-      printw("f");
-    } else {
-      // אם הוא לא חשוף למשתמש/ת, נשאיר אותו ריק
-      printw(" ");
-    }
-  }
-  attroff(COLOR_PAIR(1));
-  if (board_changed) SetColor(game, i, j, red);
-  printw(" ");
-  attroff(COLOR_PAIR(1));
-}
+//   // נבדוק שהתא הזה כבר חשוף למשתמש
+//   if (game->is_revealed_board[i][j]) {
+//     if (game->hidden_board[i][j] == -1) {
+//       // אם הוא מוקש נסמנו בהתאם
+//       printw("*");
+//     } else {
+//       // אם הוא לא מוקש נדפיס למשתמש/ת את ערכו
+//       printw("%d", game->hidden_board[i][j]);
+//     }
+//   } else {
+//     if (game->is_flagged_board[i][j]) {
+//       printw("f");
+//     } else {
+//       // אם הוא לא חשוף למשתמש/ת, נשאיר אותו ריק
+//       printw(" ");
+//     }
+//   }
+//   attroff(COLOR_PAIR(1));
+//   if (board_changed) SetColor(game, i, j, red);
+//   printw(" ");
+//   attroff(COLOR_PAIR(1));
+// }
 
-void PrintHorizontalLine(struct Game *game) {
-  for (int j = 0; j < game->config.cols; ++j) {
-    printw("----");
-  }
-  printw("-\n");
-}
+// void PrintHorizontalLine(struct Game *game) {
+//   for (int j = 0; j < game->config.cols; ++j) {
+//     printw("----");
+//   }
+//   printw("-\n");
+// }
 
-void DrawBoard(struct Game *game, bool red, bool board_changed) {
-  clear();  // clear screen
+// void DrawBoard(struct Game *game, bool red, bool board_changed) {
+//   clear();  // clear screen
 
-  int num_flags = 0;
-  for (int i = 0; i < game->config.rows; ++i) {
-    for (int j = 0; j < game->config.cols; ++j) {
-      num_flags += game->is_flagged_board[i][j];
-    }
-  }
+//   int num_flags = 0;
+//   for (int i = 0; i < game->config.rows; ++i) {
+//     for (int j = 0; j < game->config.cols; ++j) {
+//       num_flags += game->is_flagged_board[i][j];
+//     }
+//   }
 
-  printw("Mine Sweeper, rows: %d, cols: %d, mines: %d, flags: %d\n",
-         game->config.rows, game->config.cols, game->config.mines, num_flags);
+//   printw("Mine Sweeper, rows: %d, cols: %d, mines: %d, flags: %d\n",
+//          game->config.rows, game->config.cols, game->config.mines, num_flags);
 
-  for (int i = 0; i < game->config.rows; ++i) {
-    PrintHorizontalLine(game);
+//   for (int i = 0; i < game->config.rows; ++i) {
+//     PrintHorizontalLine(game);
 
-    for (int j = 0; j < game->config.cols; ++j) {
-      printw("|");
-      PrintCellValue(game, i, j, red, board_changed);
-    }
-    printw("|\n");
-  }
-  PrintHorizontalLine(game);
-}
+//     for (int j = 0; j < game->config.cols; ++j) {
+//       printw("|");
+//       PrintCellValue(game, i, j, red, board_changed);
+//     }
+//     printw("|\n");
+//   }
+//   PrintHorizontalLine(game);
+// }
 
 void reveal_cell(struct Game *game, int i, int j) {
   Cell *cell = game->gtk_cells[i][j];
@@ -203,18 +212,10 @@ void reveal_red_mine(struct Game *game) {
 }
 
 void RevealZeroes(struct Game *game) {
-  LIST_HEAD(listhead, entry)
-  head;
-  struct entry {
-    int row_ind;
-    int col_ind;
-    LIST_ENTRY(entry)
-    entries; /* List. */
-  } *np;
-
+  struct listhead head;
   LIST_INIT(&head); /* Initialize the list. */
-
-  np = (struct entry *)malloc(sizeof(struct entry)); /* Insert at the head. */
+  struct entry *np = (struct entry *)malloc(sizeof(struct entry)); /* Insert at the head. */
+  
   np->row_ind = game->pos.i;
   np->col_ind = game->pos.j;
   LIST_INSERT_HEAD(&head, np, entries);
