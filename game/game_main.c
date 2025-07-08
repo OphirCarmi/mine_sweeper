@@ -12,8 +12,7 @@
 #include <unistd.h>
 
 #include "common/common.h"
-
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+#include "message_quque.h"
 
 #define USE_NCURSES
 
@@ -25,7 +24,7 @@ struct _Cell {
   int x;
   int y;
   GtkImage *image;
-  struct Game *game;
+  struct Position *pos;
 };
 typedef struct _Cell Cell;
 
@@ -49,14 +48,14 @@ struct Game {
   struct GameConfig config;
 };
 
-struct entry {
+struct pixel_entry {
   int row_ind;
   int col_ind;
-  LIST_ENTRY(entry)
+  LIST_ENTRY(pixel_entry)
   entries; /* List. */
 };
 
-LIST_HEAD(listhead, entry);
+LIST_HEAD(pixel_listhead, pixel_entry);
 
 void GenerateRandomMines(struct Game *game, int **indices) {
   int num_cells = game->config.rows * game->config.cols;
@@ -212,9 +211,9 @@ void reveal_red_mine(struct Game *game) {
 }
 
 void RevealZeroes(struct Game *game) {
-  struct listhead head;
+  struct pixel_listhead head;
   LIST_INIT(&head); /* Initialize the list. */
-  struct entry *np = (struct entry *)malloc(sizeof(struct entry)); /* Insert at the head. */
+  struct pixel_entry *np = (struct pixel_entry *)malloc(sizeof(struct pixel_entry)); /* Insert at the head. */
   
   np->row_ind = game->pos.i;
   np->col_ind = game->pos.j;
@@ -261,8 +260,8 @@ void RevealZeroes(struct Game *game) {
 
       if (game->hidden_board[neigh_row_ind][neigh_col_ind] != 0) continue;
 
-      np = (struct entry *)malloc(
-          sizeof(struct entry)); /* Insert at the head. */
+      np = (struct pixel_entry *)malloc(
+          sizeof(struct pixel_entry)); /* Insert at the head. */
       np->row_ind = neigh_row_ind;
       np->col_ind = neigh_col_ind;
       LIST_INSERT_HEAD(&head, np, entries);
@@ -345,7 +344,25 @@ bool CheckWin(struct Game *game) {
   return true;
 }
 
+void MoveByDiff(int diff_i, int diff_j)
+{
+  for (int m = 0; m < diff_i; ++m)
+    MsgQueuePush('x');
+  for (int m = 0; m < -diff_i; ++m)
+    MsgQueuePush('w');
+  for (int m = 0; m < diff_j; ++m)
+    MsgQueuePush('d');
+  for (int m = 0; m < -diff_j; ++m)
+    MsgQueuePush('a');
+}
+
 static void handle_button_click(Cell *cell, GtkButton *button) {
+  int diff_i = cell->y - cell->pos->i;
+  int diff_j = cell->x - cell->pos->j;
+  printf("diff %d %d\n", diff_i, diff_j);
+  MoveByDiff(diff_i, diff_j);
+  MsgQueuePush(' ');
+
   // cell->image = (GtkImage *)gtk_image_new_from_file(
   //     "gtk_example/images/Minesweeper_1.svg");
   // gtk_button_set_image(button, GTK_WIDGET(cell->image));
@@ -371,6 +388,7 @@ void *init_display_gtk_func(void *args) {
       cell->y = y;
       cell->image = (GtkImage *)gtk_image_new_from_file(
           "gtk_example/images/Minesweeper_unopened_square.svg");
+      cell->pos = &game->pos;
       gtk_widget_show(GTK_WIDGET(cell->image));
       button = (GtkButton *)gtk_button_new();
       game->gtk_buttons[y][x] = button;
@@ -380,8 +398,8 @@ void *init_display_gtk_func(void *args) {
       game->gtk_cells[y][x] = cell;
       gtk_table_attach(table, GTK_WIDGET(button), x, x + 1, y, y + 1,
                        GTK_EXPAND | GTK_FILL, GTK_EXPAND | GTK_FILL, 0, 0);
-      // g_signal_connect_swapped(G_OBJECT(button), "clicked",
-      //                          G_CALLBACK(handle_button_click), cell);
+      g_signal_connect_swapped(G_OBJECT(button), "clicked",
+                               G_CALLBACK(handle_button_click), cell);
     }
   gtk_widget_show(GTK_WIDGET(table));
   game->display_window = (GtkWindow *)gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -435,7 +453,10 @@ void Init(struct Game *game) {
 
   memset(&game->pos, 0, sizeof(game->pos));
 
-  if (show) init_display_gtk(game);
+  if (show) {
+    init_display_gtk(game);
+    MsgQueueInit();
+  }
 }
 
 void deinit_display_gtk(struct Game *game) {
@@ -663,7 +684,11 @@ int run_one_game(int sock, const char *game_file_path) {
         continue;
       }
     } else {
-      c = getch();
+      if (MsgQueueIsEmpty()) {
+        usleep(1);
+        continue;
+      }
+      c = MsgQueuePop();
     }
 
     // printf("c '%c'\n", c);
