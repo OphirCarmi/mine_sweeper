@@ -198,6 +198,11 @@ void flag_pos_cell(struct Game *game) {
   gtk_image_set_from_file(cell->image, "gtk_example/images/Minesweeper_flag.svg");
 }
 
+void remove_flag_pos_cell(struct Game *game) {
+  Cell *cell = game->gtk_cells[game->pos.i][game->pos.j];
+  gtk_image_set_from_file(cell->image, "gtk_example/images/Minesweeper_unopened_square.svg");
+}
+
 void reveal_green_mine(struct Game *game, int i, int j) {
   if (game->hidden_board[i][j] == -1) {
     Cell *cell = game->gtk_cells[i][j];
@@ -357,18 +362,41 @@ void MoveByDiff(int diff_i, int diff_j)
     MsgQueuePush('a');
 }
 
-static void handle_button_click(Cell *cell, GtkButton *button) {
+// Callback function for button press events
+gboolean handle_button_click(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
+  Cell *cell = (Cell *)user_data;
   int diff_i = cell->y - cell->pos->i;
   int diff_j = cell->x - cell->pos->j;
-  printf("diff %d %d\n", diff_i, diff_j);
-  MoveByDiff(diff_i, diff_j);
-  MsgQueuePush(' ');
+  if (event->type == GDK_BUTTON_PRESS && event->button == 1) { // Right mouse button
+      // printf("diff %d %d\n", diff_i, diff_j);
+      // printf("pos %d %d\n", cell->pos->i, cell->pos->j);
+      MoveByDiff(diff_i, diff_j);
+      MsgQueuePush(' ');
+      return TRUE; // Event handled
+    }
+    if (event->type == GDK_BUTTON_PRESS && event->button == 3) { // Right mouse button
+      MoveByDiff(diff_i, diff_j);
+      MsgQueuePush('f');
 
-  // cell->image = (GtkImage *)gtk_image_new_from_file(
-  //     "gtk_example/images/Minesweeper_1.svg");
-  // gtk_button_set_image(button, GTK_WIDGET(cell->image));
-  // g_warning("clicked x=%d, y=%d\n", cell->x, cell->y);
+        // You can add more actions here, like displaying a context menu
+        return TRUE; // Event handled
+    }
+    return FALSE; // Event not handled
 }
+
+// static void handle_button_click(Cell *cell, GtkButton *button) {
+//   int diff_i = cell->y - cell->pos->i;
+//   int diff_j = cell->x - cell->pos->j;
+//   // printf("diff %d %d\n", diff_i, diff_j);
+//   // printf("pos %d %d\n", cell->pos->i, cell->pos->j);
+//   MoveByDiff(diff_i, diff_j);
+//   MsgQueuePush(' ');
+
+//   // cell->image = (GtkImage *)gtk_image_new_from_file(
+//   //     "gtk_example/images/Minesweeper_1.svg");
+//   // gtk_button_set_image(button, GTK_WIDGET(cell->image));
+//   // g_warning("clicked x=%d, y=%d\n", cell->x, cell->y);
+// }
 
 void *init_display_gtk_func(void *args) {
   struct Game *game = (struct Game *)args;
@@ -395,12 +423,12 @@ void *init_display_gtk_func(void *args) {
       game->gtk_buttons[y][x] = button;
       gtk_container_add(GTK_CONTAINER(button), GTK_WIDGET(cell->image));
       gtk_widget_show(GTK_WIDGET(button));
-      g_object_set_data(G_OBJECT(button), "cell", cell);
+      // g_object_set_data(G_OBJECT(button), "cell", cell);
       game->gtk_cells[y][x] = cell;
       gtk_table_attach(table, GTK_WIDGET(button), x, x + 1, y, y + 1,
                        GTK_EXPAND | GTK_FILL, GTK_EXPAND | GTK_FILL, 0, 0);
-      g_signal_connect_swapped(G_OBJECT(button), "button-press-event",
-                               G_CALLBACK(handle_button_click), cell);
+      g_signal_connect(G_OBJECT(button), "button-press-event",
+                               G_CALLBACK(handle_button_click), (gpointer)cell);
     }
   gtk_widget_show(GTK_WIDGET(table));
   game->display_window = (GtkWindow *)gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -726,13 +754,18 @@ int run_one_game(int sock, const char *game_file_path) {
         board_changed = true;
         break;
       case 'f':
-        game.is_flagged_board[game.pos.i][game.pos.j] =
-            !game.is_flagged_board[game.pos.i][game.pos.j];
-        if (show) flag_pos_cell(&game);
+        bool curr_flag = game.is_flagged_board[game.pos.i][game.pos.j];
+        curr_flag = !curr_flag;
+        game.is_flagged_board[game.pos.i][game.pos.j] = curr_flag;
+        if (show) {
+          if (curr_flag)
+            flag_pos_cell(&game);
+          else
+            remove_flag_pos_cell(&game);
+        }
         game.changed_cells[0] = game.pos.i;
         game.changed_cells[1] = game.pos.j;
-        game.changed_cells[2] =
-            game.is_flagged_board[game.pos.i][game.pos.j] ? 'f' : ' ';
+        game.changed_cells[2] = curr_flag ? 'f' : ' ';
         game.changed_cells_len = 1;
         board_changed = true;
         break;
@@ -758,16 +791,16 @@ int run_one_game(int sock, const char *game_file_path) {
 
 void init_curses() {
 #ifdef USE_NCURSES
-  setlocale(LC_ALL, "");
-  /* Curses Initialisations */
-  initscr();
-  use_default_colors();
-  start_color();
-  init_pair(1, -1, COLOR_GREEN);
-  init_pair(2, -1, -1);
-  init_pair(3, -1, COLOR_RED);
-  raw();
-  keypad(stdscr, TRUE);
+  // setlocale(LC_ALL, "");
+  // /* Curses Initialisations */
+  // initscr();
+  // use_default_colors();
+  // start_color();
+  // init_pair(1, -1, COLOR_GREEN);
+  // init_pair(2, -1, -1);
+  // init_pair(3, -1, COLOR_RED);
+  // raw();
+  // keypad(stdscr, TRUE);
 #endif  // USE_NCURSES
 }
 
