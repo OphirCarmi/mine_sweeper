@@ -51,11 +51,11 @@ struct Game {
 struct pixel_entry {
   int row_ind;
   int col_ind;
-  LIST_ENTRY(pixel_entry)
+  TAILQ_ENTRY(pixel_entry)
   entries; /* List. */
 };
 
-LIST_HEAD(pixel_listhead, pixel_entry);
+TAILQ_HEAD(pixel_listhead, pixel_entry);
 
 void GenerateRandomMines(struct Game *game, int **indices) {
   int num_cells = game->config.rows * game->config.cols;
@@ -212,12 +212,12 @@ void reveal_red_mine(struct Game *game) {
 
 void RevealZeroes(struct Game *game) {
   struct pixel_listhead head;
-  LIST_INIT(&head); /* Initialize the list. */
+  TAILQ_INIT(&head); /* Initialize the list. */
   struct pixel_entry *np = (struct pixel_entry *)malloc(sizeof(struct pixel_entry)); /* Insert at the head. */
   
   np->row_ind = game->pos.i;
   np->col_ind = game->pos.j;
-  LIST_INSERT_HEAD(&head, np, entries);
+  TAILQ_INSERT_TAIL(&head, np, entries);
 
   game->is_revealed_board[game->pos.i][game->pos.j] = true;
   if (show) reveal_pos_cell(game);
@@ -227,12 +227,13 @@ void RevealZeroes(struct Game *game) {
   *ptr++ = game->pos.j;
   *ptr++ = game->hidden_board[game->pos.i][game->pos.j] + '0';
 
-  while (head.lh_first != NULL) {
-    int curr_row_ind = head.lh_first->row_ind;
-    int curr_col_ind = head.lh_first->col_ind;
+  for (;;) {
+    np = TAILQ_FIRST(&head);
+    if (np == NULL) break;
+    int curr_row_ind = np->row_ind;
+    int curr_col_ind = np->col_ind;
 
-    np = head.lh_first;
-    LIST_REMOVE(head.lh_first, entries);
+    TAILQ_REMOVE(&head, np, entries);
     free(np);
 
     for (int k = 0; k < num_neighbours; ++k) {
@@ -255,7 +256,7 @@ void RevealZeroes(struct Game *game) {
 
         // DrawBoard(game, false, false);
         // refresh();
-        usleep(100000);
+        usleep(50000);
       }
 
       if (game->hidden_board[neigh_row_ind][neigh_col_ind] != 0) continue;
@@ -264,7 +265,7 @@ void RevealZeroes(struct Game *game) {
           sizeof(struct pixel_entry)); /* Insert at the head. */
       np->row_ind = neigh_row_ind;
       np->col_ind = neigh_col_ind;
-      LIST_INSERT_HEAD(&head, np, entries);
+      TAILQ_INSERT_TAIL(&head, np, entries);
     }
   }
 
@@ -398,7 +399,7 @@ void *init_display_gtk_func(void *args) {
       game->gtk_cells[y][x] = cell;
       gtk_table_attach(table, GTK_WIDGET(button), x, x + 1, y, y + 1,
                        GTK_EXPAND | GTK_FILL, GTK_EXPAND | GTK_FILL, 0, 0);
-      g_signal_connect_swapped(G_OBJECT(button), "clicked",
+      g_signal_connect_swapped(G_OBJECT(button), "button-press-event",
                                G_CALLBACK(handle_button_click), cell);
     }
   gtk_widget_show(GTK_WIDGET(table));
@@ -664,7 +665,7 @@ int run_one_game(int sock, const char *game_file_path) {
 
   for (int iter = 0;; ++iter) {
     // printf("iter %d\n", iter);
-    if (show) {
+    // if (show) {
       // DrawBoard(&game, false, board_changed);
 
       // // נבקש קלט מהמשתמש/ת
@@ -673,8 +674,8 @@ int run_one_game(int sock, const char *game_file_path) {
       // printw("use space bar to reveal\n");
       // printw("use `f` to flag an existing mine\n");
       // refresh();
-      usleep(100000);
-    }
+      // usleep(100000);
+    // }
 
     char c;
     int8_t msg_type;
